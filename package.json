@@ -1,0 +1,31 @@
+{
+  "name": "mutant-io",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MUTANT.IO — jogo 2D multiplayer de sobrevivência e evolução biológica para navegador.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:standalone": "node scripts/build.mjs --only=standalone",
+    "start": "node apps/server/dist/index.js",
+    "dev": "node scripts/build.mjs --only=client && tsx watch --tsconfig tsconfig.json apps/server/src/index.ts",
+    "dev:client": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsx --tsconfig tsconfig.json --test tests/unit/*.test.ts tests/integration/*.test.ts tests/performance/*.test.ts",
+    "test:unit": "tsx --tsconfig tsconfig.json --test tests/unit/*.test.ts",
+    "test:e2e": "node tests/e2e/two-clients.mjs && node tests/e2e/offline-flow.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.12",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.56.0",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3"
+  }
+}

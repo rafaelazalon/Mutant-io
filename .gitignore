@@ -1,0 +1,5 @@
+node_modules/
+apps/*/dist/
+dist-standalone/
+tests/e2e/screens/
+.env

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#04060d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MUTANT.IO" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <meta name="description" content="MUTANT.IO — evolua, combine mutações e sobreviva numa arena multiplayer." />
+    <title>MUTANT.IO</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='%237dff6a'/%3E%3Ccircle cx='40' cy='26' r='7' fill='%23fff'/%3E%3Ccircle cx='42' cy='26' r='3.5' fill='%23111'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="stage" aria-hidden="true"></div>
+    <canvas id="game" aria-label="Arena do jogo"></canvas>
+
+    <!-- HUD da partida -->
+    <div id="hud" class="hidden">
+      <div class="hud-tl">
+        <div class="player-card">
+          <div class="lvl" aria-label="Nível"><span class="lvl-n">0</span></div>
+          <div class="bars">
+            <div class="bar hp"><div class="fill"></div><span class="txt"></span></div>
+            <div class="bar evo"><div class="fill"></div><span class="txt"></span></div>
+          </div>
+        </div>
+        <div class="muts" aria-label="Mutações"></div>
+        <canvas id="minimap" aria-label="Minimapa"></canvas>
+      </div>
+      <div class="hud-tc">
+        <div class="timer-row"><div class="timer">--:--</div><button class="menu-btn" type="button" aria-label="Menu">☰</button></div>
+        <div class="phase"></div>
+        <button class="room-chip hidden" type="button"></button>
+      </div>
+      <div class="hud-tr">
+        <div class="board"></div>
+        <div class="net"></div>
+      </div>
+      <div class="powers" aria-label="Poderes"></div>
+      <div class="evo-panel hidden"></div>
+      <button class="evo-pill hidden" type="button"></button>
+      <div class="toasts" aria-live="polite"></div>
+      <div class="banner hidden"></div>
+      <div class="death hidden"></div>
+      <div class="mode-tag hidden">TREINO OFFLINE</div>
+    </div>
+
+    <!-- Telas -->
+    <section id="title" class="screen">
+      <div class="title-wrap">
+        <canvas id="preview" width="260" height="200" aria-hidden="true"></canvas>
+        <h1 class="logo">MUTANT<span>.IO</span></h1>
+        <p class="tagline">Evolua. Combine mutações. Sobreviva.</p>
+        <div class="status" id="status"><span class="dot"></span><span class="st-txt">Verificando servidor…</span></div>
+        <input id="name" maxlength="16" placeholder="Nome do mutante" autocomplete="nickname" />
+        <button id="play" class="btn primary big" type="button">JOGAR ONLINE</button>
+        <div class="row two"><button id="practice" class="btn" type="button">Treino offline</button><button id="open-shop" class="btn shop-btn" type="button">🛍️ Loja</button></div>
+        <div class="row">
+          <button id="create" class="btn small" type="button">Criar sala privada</button>
+          <input id="code" maxlength="8" placeholder="CÓDIGO" autocapitalize="characters" />
+          <button id="join-code" class="btn small" type="button">Entrar</button>
+        </div>
+        <div class="row links">
+          <button id="open-help" class="link" type="button">Como jogar</button>
+          <button id="open-codex" class="link" type="button">Mutações <span id="codex-count"></span></button>
+          <button id="open-settings" class="link" type="button">Configurações</button>
+        </div>
+        <p class="fine">Bots aparecem com o selo <b>BOT</b> no placar e no nome.</p>
+      </div>
+    </section>
+
+    <section id="shop" class="screen hidden" aria-label="Loja de aparências"></section>
+
+    <section id="matching" class="screen hidden">
+      <div class="panel center">
+        <div class="spinner"></div>
+        <h2 id="matching-title">Procurando partida…</h2>
+        <p id="matching-sub" class="muted"></p>
+        <button id="cancel-match" class="btn" type="button">Cancelar</button>
+      </div>
+    </section>
+
+    <section id="results" class="screen hidden">
+      <div class="panel results">
+        <h2 class="res-title">Fim da partida</h2>
+        <div class="res-top">
+          <canvas id="card" width="1080" height="1350" aria-label="Cartão de resultado"></canvas>
+          <div class="res-side">
+            <div class="placement"></div>
+            <div class="res-table"></div>
+          </div>
+        </div>
+        <div class="res-actions">
+          <button id="share" class="btn primary" type="button">Compartilhar</button>
+          <button id="download" class="btn" type="button">Baixar imagem</button>
+          <button id="copy-build" class="btn" type="button">Copiar build</button>
+          <button id="rematch" class="btn primary" type="button">Revanche</button>
+          <button id="to-menu" class="btn" type="button">Menu</button>
+        </div>
+        <p class="share-status muted" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <button class="modal-close" type="button" aria-label="Fechar">✕</button>
+        <div class="modal-body"></div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+# Configuração para o Render (render.com): New + > Blueprint > escolha este repositório.
+services:
+  - type: web
+    name: mutant-io
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PUBLIC_URL
+        sync: false
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_WEBHOOK_SECRET
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mutant-db
+          property: connectionString
+databases:
+  - name: mutant-db
+    plan: free
