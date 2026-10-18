@@ -82,6 +82,30 @@ export class Music {
     this.timer = window.setInterval(() => this.schedule(), 30);
   }
 
+  /** Renderiza a trilha fora do tempo real (para vídeos de divulgação): devolve um AudioBuffer estéreo. */
+  static async renderOffline(track: 'game' | 'title', seconds: number, intense = false): Promise<AudioBuffer> {
+    const rate = 44100;
+    const off = new OfflineAudioContext(2, Math.ceil(rate * seconds), rate);
+    const m = new Music();
+    m.intense = intense;
+    m.attach(off as unknown as AudioContext, off.destination);
+    m.out!.gain.value = 0.5;
+    m.track = track;
+    const sd = 60 / (track === 'title' ? 84 : 112) / 4;
+    m.nextTime = 0.05;
+    m.step = 0;
+    while (m.nextTime < seconds) {
+      if (track === 'title') m.titleStep(m.step, m.nextTime, sd);
+      else m.gameStep(m.step, m.nextTime, sd);
+      m.nextTime += sd;
+      m.step = (m.step + 1) % 64;
+    }
+    // fade-out no último segundo
+    m.out!.gain.setValueAtTime(0.5, Math.max(0, seconds - 1.2));
+    m.out!.gain.linearRampToValueAtTime(0.0001, seconds);
+    return off.startRendering();
+  }
+
   stop() {
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
