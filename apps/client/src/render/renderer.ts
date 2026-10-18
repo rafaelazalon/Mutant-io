@@ -82,11 +82,16 @@ export class Renderer {
   private hitFrom: { a: number; t: number; back: boolean }[] = [];
   private dashGhost = new Map<number, number>();
 
+  /** eventos do quadro (para o modo 3D desenhar os próprios efeitos) */
+  onEventBatch: (evs: GameEvent[]) => void = () => {};
+
   constructor(
     readonly canvas: HTMLCanvasElement,
     readonly minimap: HTMLCanvasElement,
+    /** modo 3D: este canvas vira só a camada de cima (minimapa, setas, avisos); o mundo é desenhado em 3D por baixo */
+    readonly overlay = false,
   ) {
-    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true } as CanvasRenderingContext2DSettings);
+    const ctx = canvas.getContext('2d', { alpha: overlay, desynchronized: !overlay } as CanvasRenderingContext2DSettings);
     if (!ctx) throw new Error('Canvas 2D indisponível');
     this.ctx = ctx;
     this.resize();
@@ -547,6 +552,7 @@ export class Renderer {
   /* -------------------------------------------------------------- */
 
   private handleEvents(g: ClientGame, evs: GameEvent[], audio: Audio) {
+    if (evs.length) this.onEventBatch(evs);
     const me = g.myId;
     for (const e of evs) {
       switch (e.k) {
@@ -886,6 +892,14 @@ export class Renderer {
     const sx = (Math.random() - 0.5) * this.shake;
     const sy = (Math.random() - 0.5) * this.shake;
 
+    if (this.overlay) {
+      this.overlayLogic(g, dt, audio, views, mp);
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      ctx.clearRect(0, 0, this.w, this.h);
+      this.screenLayer(g, dt, mp);
+      return;
+    }
+
     if (this.hq) {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       ctx.fillStyle = '#04060d';
@@ -1002,6 +1016,51 @@ export class Renderer {
 
     // camada de tela
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.screenLayer(g, dt, mp);
+  }
+
+  /** Direção para onde o próprio jogador olha (usada também pelo modo 3D). */
+  selfFacing: { x: number; y: number } = { x: 1, y: 0 };
+
+  /** Modo 3D: só a lógica do quadro (biomassa suavizada, choque das zonas, direção do jogador). */
+  private overlayLogic(g: ClientGame, dt: number, audio: Audio, views: RemoteView[], mp: { x: number; y: number }) {
+    const k12 = Math.min(1, dt * 12);
+    for (const p of g.pellets.values()) {
+      if (p.x !== p.tx || p.y !== p.ty) {
+        p.x += (p.tx - p.x) * k12;
+        p.y += (p.ty - p.y) * k12;
+      }
+    }
+    const me = g.me;
+    const list = views.map((v) => ({ id: v.id, x: v.x, y: v.y, r: v.r, flags: v.flags }));
+    if (me?.alive) {
+      list.push({ id: me.id, x: mp.x, y: mp.y, r: me.r, flags: me.flags });
+      const sp = Math.hypot(g.body.vx, g.body.vy);
+      if (sp > 20) this.selfFacing = { x: g.body.vx / sp, y: g.body.vy / sp };
+    }
+    for (const p of list) {
+      const inZone = (p.flags & FLAG.inZone) !== 0;
+      const was = this.wasInZone.get(p.id);
+      if (inZone && was === false && Math.hypot(p.x - this.cam.x, p.y - this.cam.y) < 1400) this.zoneShock(g, p.id, p.x, p.y, p.r, audio);
+      this.wasInZone.set(p.id, inZone);
+    }
+  }
+
+  get groundCanvas() {
+    return this.ground;
+  }
+  get shakeAmount() {
+    return this.shake;
+  }
+  get clock() {
+    return this.time;
+  }
+
+  private screenLayer(g: ClientGame, dt: number, mp: { x: number; y: number }) {
+    const ctx = this.ctx;
+    const me = g.me;
+    const W = g.welcome?.arena.w ?? ARENA;
+    const H = g.welcome?.arena.h ?? ARENA;
     if (this.hq && this.vignette) ctx.drawImage(this.vignette, 0, 0, this.w, this.h);
     if (me?.alive && me.hp / me.mhp < 0.3 && this.redVignette) {
       ctx.globalAlpha = 0.45 + 0.3 * Math.sin(this.time * 6);

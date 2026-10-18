@@ -33,6 +33,8 @@ const clientOpts = {
   tsconfig,
   logLevel: 'info',
   plugins: [{ name: 'static', setup: (b) => b.onEnd(copyStatic) }],
+  // Three.js vem do arquivo da pasta vendor (sem depender do npm)
+  alias: { three: join(clientDir, 'vendor/three.module.min.js') },
 };
 
 const serverOpts = {
@@ -58,6 +60,7 @@ async function standalone() {
     minify: true,
     write: false,
     tsconfig,
+    alias: { three: join(clientDir, 'vendor/three.module.min.js') },
   });
   const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
   const css = readFileSync(join(clientDir, 'styles.css'), 'utf8');

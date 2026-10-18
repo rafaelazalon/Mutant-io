@@ -32,6 +32,7 @@ input { font: inherit; user-select: text; -webkit-user-select: text; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
 #game { position: fixed; left: 0; top: 0; display: block; touch-action: none; }
+#game3d { position: fixed; left: 0; top: 0; display: block; pointer-events: none; }
 /* referência invisível da área visível real (medida pelo jogo para se ajustar à tela) */
 #stage { position: fixed; inset: 0; pointer-events: none; visibility: hidden; z-index: -1; }
 /* a interface escala com o tamanho da tela (celular, tablet, monitor) */

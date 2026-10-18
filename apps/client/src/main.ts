@@ -20,7 +20,17 @@ type Screen = 'title' | 'matching' | 'game' | 'results' | 'shop';
 class App {
   settings: Settings = loadSettings();
   audio = new Audio();
-  renderer = new Renderer($('game') as HTMLCanvasElement, $('minimap') as HTMLCanvasElement);
+  /** modo 3D: ?3d=1 / ?3d=0 na URL ou a opção nas configurações */
+  use3d = (() => {
+    const q = new URLSearchParams(location.search).get('3d');
+    if (q === '1' || q === '0') {
+      this.settings.gfx3d = q === '1';
+      saveSettings(this.settings);
+    }
+    return this.settings.gfx3d;
+  })();
+  renderer = new Renderer($('game') as HTMLCanvasElement, $('minimap') as HTMLCanvasElement, this.use3d);
+  r3d: import('./render3d/scene3d.js').Scene3D | null = null;
   controls = new Controls($('game'));
   hud = new Hud();
   game: ClientGame | null = null;
@@ -87,6 +97,12 @@ class App {
     $('open-help').onclick = () => this.openHelp();
     $('open-codex').onclick = () => this.openCodex();
     $('open-settings').onclick = () => this.openSettings();
+    $('toggle-3d').textContent = this.use3d ? '🟩 Voltar ao 2D' : '🧊 Modo 3D (beta)';
+    $('toggle-3d').onclick = () => {
+      const u = new URL(location.href);
+      u.searchParams.set('3d', this.use3d ? '0' : '1');
+      location.href = u.toString();
+    };
     $('modal').querySelector('.modal-close')!.addEventListener('click', () => this.closeModal());
     $('modal').addEventListener('click', (e) => {
       if (e.target === $('modal')) this.closeModal();
@@ -129,9 +145,29 @@ class App {
       if (document.hidden) this.game?.sendIdle();
     });
 
+    if (this.use3d) void this.start3d();
     this.updateCodexCount();
     void this.checkServer();
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  /** Liga o modo 3D: um canvas WebGL por baixo do canvas 2D (que vira só a interface). */
+  private async start3d() {
+    try {
+      const c = document.createElement('canvas');
+      c.id = 'game3d';
+      c.setAttribute('aria-hidden', 'true');
+      $('game').before(c);
+      const { Scene3D } = await import('./render3d/scene3d.js');
+      this.r3d = new Scene3D(c, this.renderer);
+    } catch (e) {
+      console.warn('3D indisponível', e);
+      document.getElementById('game3d')?.remove();
+      this.settings.gfx3d = false;
+      saveSettings(this.settings);
+      this.flashStatus('Gráficos 3D não funcionam neste aparelho — voltando ao 2D.');
+      setTimeout(() => location.reload(), 1500);
+    }
   }
 
   /* ------------------------------------------------------------ */
@@ -551,6 +587,7 @@ class App {
       <label class="setting"><span>Tela cheia automática no celular</span><input id="s-afs" type="checkbox" ${s.autoFullscreen ? 'checked' : ''}></label>
       <label class="setting"><span>Vibrar ao sofrer dano</span><input id="s-vib" type="checkbox" ${s.vibration ? 'checked' : ''}></label>
       <label class="setting"><span>Controles de toque</span><select id="s-hand"><option value="0" ${!s.leftHanded ? 'selected' : ''}>Joystick à esquerda</option><option value="1" ${s.leftHanded ? 'selected' : ''}>Joystick à direita (canhoto)</option></select></label>
+      <label class="setting"><span>Gráficos 3D (beta) — recarrega o jogo</span><input id="s-3d" type="checkbox" ${s.gfx3d ? 'checked' : ''}></label>
       <label class="setting"><span>Mostrar ping</span><input id="s-stats" type="checkbox" ${s.showStats ? 'checked' : ''}></label>
       <div class="setting"><span>Tela cheia</span><button class="btn small" id="s-fs" type="button">Alternar</button></div>`);
     const save = () => {
@@ -589,6 +626,13 @@ class App {
     $<HTMLSelectElement>('s-hand').onchange = (e) => {
       s.leftHanded = (e.target as HTMLSelectElement).value === '1';
       save();
+    };
+    $<HTMLInputElement>('s-3d').onchange = (e) => {
+      s.gfx3d = (e.target as HTMLInputElement).checked;
+      saveSettings(this.settings);
+      const u = new URL(location.href);
+      u.searchParams.set('3d', s.gfx3d ? '1' : '0');
+      location.href = u.toString();
     };
     $<HTMLInputElement>('s-stats').onchange = (e) => {
       s.showStats = (e.target as HTMLInputElement).checked;
@@ -658,6 +702,7 @@ class App {
     const g = this.game;
     if (g && g.welcome) {
       g.update(dt, this.controls.axis(), this.screen !== 'game' || !$('modal').classList.contains('hidden'));
+      this.r3d?.render(g, dt);
       this.renderer.frame(g, dt, this.audio);
       this.hud.update(g, dt);
       this.checkDamage(g);

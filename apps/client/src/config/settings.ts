@@ -9,12 +9,14 @@ export interface Settings {
   autoFullscreen: boolean;
   leftHanded: boolean;
   showStats: boolean;
+  /** gráficos 3D (Three.js) — troca exige recarregar a página */
+  gfx3d: boolean;
 }
 
 const KEY = 'mutantio.settings.v2';
 const DISC_KEY = 'mutantio.discoveries.v1';
 
-const DEFAULTS: Settings = { name: '', volume: 0.7, music: 0.5, quality: 'auto', leftHanded: false, showStats: false, vibration: true, autoFullscreen: true };
+const DEFAULTS: Settings = { name: '', volume: 0.7, music: 0.5, quality: 'auto', leftHanded: false, showStats: false, vibration: true, autoFullscreen: true, gfx3d: false };
 
 function safeGet(key: string): string | null {
   try {
@@ -43,6 +45,7 @@ export function loadSettings(): Settings {
     if (typeof raw.autoFullscreen === 'boolean') s.autoFullscreen = raw.autoFullscreen;
     if (typeof raw.leftHanded === 'boolean') s.leftHanded = raw.leftHanded;
     if (typeof raw.showStats === 'boolean') s.showStats = raw.showStats;
+    if (typeof raw.gfx3d === 'boolean') s.gfx3d = raw.gfx3d;
   } catch {
     /* ignora configurações corrompidas */
   }

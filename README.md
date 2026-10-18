@@ -121,6 +121,14 @@ e `packages/shared/src/config.ts`.
 
 Política de privacidade: `/privacidade.html` (preencha o e-mail de contato).
 
+## Modo 3D (beta)
+
+Botão **🧊 Modo 3D** na tela inicial, opção nas configurações ou `?3d=1` na URL. Usa Three.js r170
+(`apps/client/vendor/three.module.min.js`, licença MIT, carregado só quando o 3D é ligado). Mesmo servidor e mesmas
+salas: jogadores em 2D e 3D se enfrentam. O mundo (arena, mutantes modelados por mutação, biomassa, zonas, ácido,
+efeitos) é desenhado em WebGL (`apps/client/src/render3d/scene3d.ts`); o canvas 2D fica por cima só com a interface.
+Se o aparelho não suportar WebGL, volta sozinho para o 2D.
+
 ## Personagens de IA e chat
 
 Cada sala tem 4 bots com personalidade. No jogo eles ficam quietos: só dão boas-vindas quando um jogador entra e
