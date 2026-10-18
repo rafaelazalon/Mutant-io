@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>MUTANT.IO — jogo multiplayer de evolução</title>
+<meta name="description" content="Evolua de célula a predador numa arena multiplayer online. Grátis no navegador do celular e do computador." />
+<link rel="icon" href="favicon.png" />
+<style>
+  html, body { margin: 0; height: 100%; background: #04060d; overflow: hidden; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  #wake { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    color: #c9d6f2; font: 600 16px system-ui, sans-serif; text-align: center; pointer-events: none; transition: opacity .4s; }
+  #wake b { font-size: 34px; color: #7dff6a; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<!-- O jogo roda no servidor oficial (multiplayer online); esta página só o mostra dentro do portal. -->
+<div id="wake"><b>MUTANT.IO</b><span>Conectando ao servidor… (pode levar até 30 s na primeira vez)</span></div>
+<iframe id="game" src="https://mutant-io.onrender.com/?portal=github" allow="autoplay; fullscreen; gamepad; vibrate" allowfullscreen></iframe>
+<script>
+  document.getElementById('game').addEventListener('load', function () { document.getElementById('wake').style.opacity = '0'; });
+</script>
+</body>
+</html>
