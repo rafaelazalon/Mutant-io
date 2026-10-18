@@ -129,6 +129,25 @@ describe('loja (regras do servidor)', () => {
     assert.ok((await shop2.auth(secret.toLowerCase())).owned.includes('padrao.tigre'));
   });
 
+  it('se o banco do jogo se perder, as compras voltam a partir do provedor de pagamento', async () => {
+    const { shop, provider } = await makeShop();
+    const { secret } = await shop.createAccount();
+    const a = await shop.auth(secret);
+    const { orderId } = await shop.startCheckout(a, 'cor.ouro');
+    await shop.handleNotification(provider.pay(orderId).id);
+    // servidor recriado: banco novo e vazio, mesmo provedor (o Mercado Pago guarda os pagamentos)
+    const dir = mkdtempSync(join(tmpdir(), 'mx-shop-'));
+    dirs.push(dir);
+    const fresh = new FileAccountStore(dir);
+    stores.push(fresh);
+    await fresh.init();
+    const shop2 = new ShopService(fresh, provider, { publicUrl: 'https://jogo.exemplo' });
+    const back = await shop2.auth(secret);
+    assert.deepEqual(back.owned, ['cor.ouro']);
+    // código sem compras continua sendo recusado
+    await assert.rejects(shop2.auth('MX-AAAA-BBBB-CCCC-DDDD'), ShopError);
+  });
+
   it('limita pedidos por hora', async () => {
     const { shop } = await makeShop();
     const s2 = new ShopService((shop as unknown as { store: FileAccountStore }).store, new FakeProvider(), { publicUrl: 'https://x', maxOrdersPerHour: 3 });
@@ -194,10 +213,11 @@ describe('Mercado Pago (API simulada localmente)', () => {
 
   it('cria a preferência com cartão/Pix (sem boleto), R$ 1,00 em BRL, retorno e aviso no endereço público', async () => {
     const mp = new MercadoPagoProvider('TEST-token', '', base);
-    const r = await mp.createCheckout({ orderId: 'ord_aaaaaaaaaaaaaaaaaaaaaaaa', itemId: 'cor.neon', title: 'MUTANT.IO — Neon', priceCents: 100, publicUrl: 'https://jogo.exemplo' });
+    const r = await mp.createCheckout({ orderId: 'ord_aaaaaaaaaaaaaaaaaaaaaaaa', accountId: 'a123', itemId: 'cor.neon', title: 'MUTANT.IO — Neon', priceCents: 100, publicUrl: 'https://jogo.exemplo' });
     assert.equal(r.providerRef, 'pref_123');
     assert.ok(r.url.startsWith('https://www.mercadopago.com.br/'));
     const call = seen.find((s) => s.url === '/checkout/preferences')!;
+    assert.deepEqual((call.body as { metadata?: unknown }).metadata, { acct: 'a123', item: 'cor.neon' });
     assert.equal(call.auth, 'Bearer TEST-token');
     assert.equal(call.idem, 'ord_aaaaaaaaaaaaaaaaaaaaaaaa');
     const b = call.body as Record<string, any>;

@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEFAULT_LOOK, sanitizeLook, type Look } from '@mutant/shared';
@@ -67,8 +67,14 @@ export function isSecretFormat(s: unknown): s is string {
   return typeof s === 'string' && /^MX(-[A-Z2-9]{4}){4}$/.test(s.trim().toUpperCase());
 }
 
+/** Id da conta derivado do código secreto: o mesmo código sempre gera o mesmo id (permite recuperar compras). */
+export function accountIdFor(secretHash: string): string {
+  return 'a' + createHash('sha256').update('mutantio-acct:' + secretHash).digest('hex').slice(0, 24);
+}
+
 export function newAccount(secret: string): Account {
-  return { id: randomUUID(), secretHash: hashSecret(secret), createdAt: Date.now(), owned: [], look: { ...DEFAULT_LOOK } };
+  const secretHash = hashSecret(secret);
+  return { id: accountIdFor(secretHash), secretHash, createdAt: Date.now(), owned: [], look: { ...DEFAULT_LOOK } };
 }
 
 export function newOrderId(): string {

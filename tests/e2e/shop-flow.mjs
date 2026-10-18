@@ -57,8 +57,9 @@ await p2.click('#join-code');
 await p2.waitForFunction((id) => window.__mutant.game?.meta?.get(id)?.look, myId, { timeout: 10000 });
 const seen = await p2.evaluate((id) => window.__mutant.game.meta.get(id).look, myId);
 const p2Id = await p2.evaluate(() => window.__mutant.game.welcome.you);
-await page.waitForFunction((id) => window.__mutant.game?.meta?.get(id)?.look, p2Id, { timeout: 10000 });
-const forged = await page.evaluate((id) => window.__mutant.game.meta.get(id).look, p2Id);
+// o visual de cada jogador é decidido pelo servidor; o próprio jogador forjado recebe de volta a versão corrigida
+await p2.waitForFunction((id) => window.__mutant.game?.meta?.get(id)?.look, p2Id, { timeout: 10000 });
+const forged = await p2.evaluate((id) => window.__mutant.game.meta.get(id).look, p2Id);
 console.log('outro jogador vê:', seen.acessorio, '· visual forjado chegou como:', forged.cor);
 if (seen.acessorio !== 'acessorio.coroa') fail('outro jogador não viu a coroa');
 if (forged.cor !== 'cor.natural') fail('servidor aceitou visual não comprado');

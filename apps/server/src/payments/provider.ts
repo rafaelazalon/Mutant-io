@@ -13,6 +13,8 @@ export interface PaymentInfo {
 
 export interface CheckoutRequest {
   orderId: string;
+  /** conta que comprou (vai junto no pagamento para recuperar a compra se o banco do jogo se perder) */
+  accountId: string;
   itemId: string;
   title: string;
   priceCents: number;
@@ -26,6 +28,8 @@ export interface PaymentProvider {
   getPayment(paymentId: string): Promise<PaymentInfo | null>;
   /** Procura pagamentos de um pedido (usado quando o aviso automático atrasa). */
   findPaymentsForOrder(orderId: string): Promise<PaymentInfo[]>;
+  /** Pagamentos aprovados de uma conta (recuperação de compras direto do provedor). */
+  findApprovedForAccount?(accountId: string): Promise<(PaymentInfo & { itemId: string })[]>;
   /** Confere a assinatura do aviso (webhook). */
   verifyWebhook(headers: Record<string, string | string[] | undefined>, dataId: string): boolean;
 }
@@ -41,6 +45,7 @@ interface MpPayment {
   transaction_amount?: number;
   currency_id?: string;
   payment_type_id?: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 function toInfo(p: MpPayment): PaymentInfo {
@@ -97,6 +102,7 @@ export class MercadoPagoProvider implements PaymentProvider {
           },
         ],
         external_reference: req.orderId,
+        metadata: { acct: req.accountId, item: req.itemId },
         notification_url: `${req.publicUrl}/api/webhooks/mercadopago`,
         back_urls: { success: back('aprovado'), pending: back('pendente'), failure: back('recusado') },
         auto_return: 'approved',
@@ -118,6 +124,21 @@ export class MercadoPagoProvider implements PaymentProvider {
     } catch {
       return null;
     }
+  }
+
+  async findApprovedForAccount(accountId: string) {
+    const out: (PaymentInfo & { itemId: string })[] = [];
+    // poucas vendas: varre os aprovados mais recentes (até 1000) e filtra pela conta guardada no pagamento
+    for (let offset = 0; offset < 1000; offset += 100) {
+      const r = await this.api<{ results?: MpPayment[] }>('GET', `/v1/payments/search?status=approved&sort=date_created&criteria=desc&limit=100&offset=${offset}`);
+      const list = r.results ?? [];
+      for (const p of list) {
+        const md = p.metadata ?? {};
+        if (md.acct === accountId && typeof md.item === 'string') out.push({ ...toInfo(p), itemId: md.item });
+      }
+      if (list.length < 100) break;
+    }
+    return out;
   }
 
   async findPaymentsForOrder(orderId: string) {
@@ -157,9 +178,11 @@ export class FakeProvider implements PaymentProvider {
   readonly name = 'fake';
   readonly payments = new Map<string, PaymentInfo>();
   private prices = new Map<string, number>();
+  private orderMeta = new Map<string, { acct: string; item: string }>();
 
   async createCheckout(req: CheckoutRequest) {
     this.prices.set(req.orderId, req.priceCents);
+    this.orderMeta.set(req.orderId, { acct: req.accountId, item: req.itemId });
     return { url: `/api/dev/checkout/${encodeURIComponent(req.orderId)}`, providerRef: `fake_${randomBytes(4).toString('hex')}` };
   }
   /** Simula o jogador pagando na página do provedor. */
@@ -174,6 +197,11 @@ export class FakeProvider implements PaymentProvider {
   }
   async findPaymentsForOrder(orderId: string) {
     return [...this.payments.values()].filter((p) => p.orderId === orderId);
+  }
+  async findApprovedForAccount(accountId: string) {
+    return [...this.payments.values()]
+      .filter((p) => p.status === 'approved' && this.orderMeta.get(p.orderId)?.acct === accountId)
+      .map((p) => ({ ...p, itemId: this.orderMeta.get(p.orderId)!.item }));
   }
   verifyWebhook() {
     return true;

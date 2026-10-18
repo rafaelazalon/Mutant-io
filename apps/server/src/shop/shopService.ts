@@ -1,5 +1,5 @@
 import { COSMETIC_BY_ID, DEFAULT_LOOK, restrictLook, sanitizeLook, type Look } from '@mutant/shared';
-import { hashSecret, isSecretFormat, newAccount, newOrderId, newSecret, type Account, type AccountStore, type Order } from '../persistence/accounts.js';
+import { accountIdFor, hashSecret, isSecretFormat, newAccount, newOrderId, newSecret, type Account, type AccountStore, type Order } from '../persistence/accounts.js';
 import type { PaymentInfo, PaymentProvider } from '../payments/provider.js';
 
 export class ShopError extends Error {
@@ -60,7 +60,30 @@ export class ShopService {
   async auth(secret: unknown): Promise<Account> {
     if (!isSecretFormat(secret)) throw new ShopError('unauthorized', 401, 'Conta não encontrada. Confira o código de recuperação.');
     const a = await this.store.getAccountBySecretHash(hashSecret(secret));
-    if (!a) throw new ShopError('unauthorized', 401, 'Conta não encontrada. Confira o código de recuperação.');
+    if (a) return a;
+    // conta sumiu do banco do jogo (servidor recriado): se o provedor tiver compras desse código, recria a conta
+    const restored = await this.restoreFromProvider(secret).catch((e) => {
+      this.log('warn', 'restore_failed', { err: String(e) });
+      return null;
+    });
+    if (restored) return restored;
+    throw new ShopError('unauthorized', 401, 'Conta não encontrada. Confira o código de recuperação.');
+  }
+
+  /** Recria a conta a partir dos pagamentos aprovados guardados no provedor (fonte da verdade das compras). */
+  private async restoreFromProvider(secret: string): Promise<Account | null> {
+    if (!this.provider?.findApprovedForAccount) return null;
+    const id = accountIdFor(hashSecret(secret));
+    const paid = await this.provider.findApprovedForAccount(id);
+    const items = [...new Set(paid.filter((p) => {
+      const it = COSMETIC_BY_ID.get(p.itemId);
+      return it && p.currency === 'BRL' && p.amountCents >= it.priceCents;
+    }).map((p) => p.itemId))];
+    if (!items.length) return null;
+    const a = newAccount(secret);
+    a.owned = items;
+    await this.store.createAccount(a);
+    this.log('info', 'account_restored', { account: a.id, items: items.length });
     return a;
   }
 
@@ -94,7 +117,7 @@ export class ShopService {
     const order: Order = { id: newOrderId(), accountId: a.id, itemId: item.id, priceCents: item.priceCents, status: 'pending', createdAt: Date.now() };
     await this.store.createOrder(order);
     try {
-      const r = await this.provider.createCheckout({ orderId: order.id, itemId: item.id, title: `MUTANT.IO — ${item.name}`, priceCents: item.priceCents, publicUrl: this.cfg.publicUrl });
+      const r = await this.provider.createCheckout({ orderId: order.id, accountId: a.id, itemId: item.id, title: `MUTANT.IO — ${item.name}`, priceCents: item.priceCents, publicUrl: this.cfg.publicUrl });
       await this.store.updateOrder(order.id, (o) => {
         o.providerRef = r.providerRef;
       });
