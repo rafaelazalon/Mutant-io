@@ -59,6 +59,17 @@ class App {
     };
     $('practice').onclick = () => this.startOffline();
     $('open-shop').onclick = () => this.openShop();
+    // portais que não aceitam pagamento por fora (CrazyGames, Poki): a loja fica escondida
+    const portal = (() => {
+      try {
+        const q = new URLSearchParams(location.search).get('portal');
+        if (q) sessionStorage.setItem('mx.portal', q);
+        return q || sessionStorage.getItem('mx.portal') || '';
+      } catch {
+        return new URLSearchParams(location.search).get('portal') || '';
+      }
+    })();
+    if (/^(crazygames|poki)$/.test(portal)) $('open-shop').classList.add('hidden');
     this.shop.onClose = () => this.setScreen('title');
     this.shop.onToast = (t, k) => this.hud.toast(t, k);
     // volta da página de pagamento: ?pedido=…&pagamento=aprovado|pendente|recusado
