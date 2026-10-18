@@ -49,6 +49,8 @@ await page.waitForFunction(() => window.__mutant.game?.phase === 'playing', null
 await page.addStyleTag({
   content: `
   .mode-tag, .evo-panel, .evo-pill { display: none !important; }
+  /* no vídeo o chat fica embaixo, sem cobrir o personagem no meio da tela */
+  #hud .chat { position: fixed; left: 10px; top: 58%; width: 250px; zoom: 1.08; }
   #mx-cap { position: fixed; left: 50%; top: 27%; transform: translateX(-50%); width: 88%; z-index: 50; text-align: center;
     font: 800 22px/1.15 system-ui, sans-serif; color: #fff; text-shadow: 0 3px 0 #000, 0 0 12px #000;
     background: rgba(5,10,22,.55); padding: 10px 12px; border-radius: 16px; border: 2px solid rgba(125,255,106,.6); pointer-events: none; }
