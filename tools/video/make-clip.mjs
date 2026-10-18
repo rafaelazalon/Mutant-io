@@ -93,6 +93,14 @@ await page.evaluate((s) => {
   me.hue = 45;
   room.chat.assign(me, 'narrador');
   w.metaDirty.add(me.id);
+  // falas dos personagens (para as vozes do vídeo): horário em segundos de relógio, igual aos quadros
+  window.__voiceLines = [];
+  window.addEventListener('mx-chat', (e) => {
+    const m = e.detail;
+    if (m.k !== 0) return;
+    const pl = w.players.get(m.pid);
+    if (pl?.persona) window.__voiceLines.push({ wall: Date.now() / 1000, persona: pl.persona, name: m.n, text: m.s });
+  });
   // as falas do narrador viram a legenda grande do vídeo
   window.addEventListener('mx-chat', (e) => {
     const m = e.detail;
@@ -172,6 +180,7 @@ const wavB64 = await page.evaluate(async (secs) => {
   for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000));
   return btoa(s);
 }, GAMEPLAY_SEC + ENDCARD_SEC);
+const voiceRaw = await page.evaluate(() => window.__voiceLines || []);
 const stats = await page.evaluate(() => {
   const w = window.__mutant.game.conn.room.world;
   const me = [...w.players.values()].find((p) => !p.isBot);
@@ -196,11 +205,18 @@ execFileSync('ffmpeg', [
   '-y', '-loglevel', 'error',
   '-f', 'concat', '-safe', '0', '-i', join(TMP, 'list.txt'),
   '-i', join(TMP, 'music.wav'),
-  '-vf', `scale=1080:1920:flags=lanczos,fps=${FPS},format=yuv420p`,
+  // setsar=1: pixels quadrados (sem isso o TikTok mostrava o vídeo achatado em 4:3)
+  '-vf', `scale=1080:1920:flags=lanczos,setsar=1,fps=${FPS},format=yuv420p`,
   '-c:v', 'libx264', '-preset', 'medium', '-crf', '24', '-profile:v', 'high',
   '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart',
   OUT,
 ]);
 rmSync(TMP, { recursive: true, force: true });
+const t0 = frames[0].t;
+const endAt = GAMEPLAY_SEC + 0.2;
+const voice = voiceRaw
+  .map((v) => ({ t: Math.round((v.wall - t0) * 100) / 100, persona: v.persona, name: v.name, text: v.text }))
+  .filter((v) => v.t >= 0 && v.t < endAt - 1.5);
+writeFileSync(OUT.replace(/\.mp4$/, '.voice.json'), JSON.stringify(voice, null, 1));
 const realFps = (frames.length / (frames.at(-1).t - frames[0].t)).toFixed(1);
-console.log(JSON.stringify({ out: OUT, hook, name, frames: frames.length, captureFps: Number(realFps), ...stats, errors }));
+console.log(JSON.stringify({ out: OUT, hook, name: 'Narrador Azalon', voiceLines: voice.length, frames: frames.length, captureFps: Number(realFps), ...stats, errors }));

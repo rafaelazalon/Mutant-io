@@ -1,0 +1,64 @@
+# Vídeo diário do TikTok: a IA (Narrador Azalon) joga, os personagens falam com voz e o vídeo vai para o branch "videos".
+# A postagem no TikTok é feita depois pelo Metricool (tarefa programada do Claude, às 18:40).
+name: Vídeo diário do TikTok
+
+on:
+  schedule:
+    - cron: '7 21 * * *' # 18:07 em Brasília
+  workflow_dispatch:
+    inputs:
+      dia:
+        description: 'Número do dia (vazio = calcula pela data; 17/10/2026 = dia 1)'
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tiktok-video
+  cancel-in-progress: false
+
+jobs:
+  video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Dependências do jogo e do navegador
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-noto-color-emoji
+
+      - name: Voz neural em português (Piper)
+        continue-on-error: true
+        run: |
+          pip install --quiet piper-tts==1.2.0
+          mkdir -p "$HOME/piper"
+          base=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/pt/pt_BR/faber/medium
+          curl -sSfL -o "$HOME/piper/pt_BR-faber-medium.onnx" "$base/pt_BR-faber-medium.onnx"
+          curl -sSfL -o "$HOME/piper/pt_BR-faber-medium.onnx.json" "$base/pt_BR-faber-medium.onnx.json"
+          echo "teste" | piper --model "$HOME/piper/pt_BR-faber-medium.onnx" --output_file /tmp/teste.wav
+          echo "PIPER_MODEL=$HOME/piper/pt_BR-faber-medium.onnx" >> "$GITHUB_ENV"
+
+      - name: Gerar e publicar o vídeo
+        env:
+          PUSH_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+        run: |
+          DIA="${{ github.event.inputs.dia }}"
+          if [ -z "$DIA" ]; then
+            hoje=$(TZ=America/Sao_Paulo date +%F)
+            DIA=$(( ( $(date -d "$hoje" +%s) - $(date -d 2026-10-17 +%s) ) / 86400 + 1 ))
+          fi
+          echo "Dia $DIA"
+          tools/video/daily.sh "$DIA"
