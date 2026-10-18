@@ -119,6 +119,13 @@ e `packages/shared/src/config.ts`.
 
 Política de privacidade: `/privacidade.html` (preencha o e-mail de contato).
 
+## Aviso de jogadores no celular
+
+Com `NOTIFY_URL=https://ntfy.sh/<tópico-secreto>`, o servidor manda uma notificação quando um jogador de verdade
+entra (bots e reconexões não contam). Instale o app **ntfy** no celular e assine o mesmo tópico. No máximo um aviso a
+cada 2 minutos (`NOTIFY_MIN_GAP_SEC`); quem entrar nesse meio-tempo aparece agrupado no aviso seguinte.
+Use um nome de tópico difícil de adivinhar: quem souber o nome também recebe os avisos.
+
 ## Segurança
 
 Validação de toda mensagem (`parseC2S`), nomes higienizados, limite de 1 KB por mensagem, token bucket por conexão

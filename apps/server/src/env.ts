@@ -39,4 +39,7 @@ export const ENV = {
   mpWebhookSecret: process.env.MP_WEBHOOK_SECRET || '',
   mpApiBase: (process.env.MP_API_BASE || 'https://api.mercadopago.com').replace(/\/$/, ''),
   production: process.env.NODE_ENV === 'production',
+  /** Aviso no celular quando alguém entra (ntfy): https://ntfy.sh/<tópico>. Vazio = desligado. */
+  notifyUrl: process.env.NOTIFY_URL || '',
+  notifyMinGapSec: num('NOTIFY_MIN_GAP_SEC', 120),
 };

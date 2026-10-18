@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
-import { GAME_CONFIG, parseC2S, type S2C } from '@mutant/shared';
+import { GAME_CONFIG, parseC2S, sanitizeName, type S2C } from '@mutant/shared';
 import { ENV } from './env.js';
 import { log } from './logger.js';
 import { RoomManager } from './matchmaking/roomManager.js';
@@ -14,6 +14,7 @@ import { FileAccountStore, PgAccountStore, type AccountStore } from './persisten
 import { FakeProvider, MercadoPagoProvider, type PaymentProvider } from './payments/provider.js';
 import { ShopService } from './shop/shopService.js';
 import { createShopApi } from './shop/api.js';
+import { JoinNotifier } from './notify/notifier.js';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const staticRoot = resolve(ENV.staticDir || join(here, '../../client/dist'));
@@ -49,6 +50,7 @@ else if (ENV.paymentsMode === 'fake' && !ENV.production) provider = new FakeProv
 const shop = new ShopService(store, provider, { publicUrl: ENV.publicUrl || (provider instanceof FakeProvider ? `http://localhost:${ENV.port}` : ''), log });
 const shopApi = createShopApi(shop, { clientIp: (r) => clientIp(r), devMode: !ENV.production });
 if (ENV.paymentsMode === 'mercadopago' && !ENV.publicUrl) log('warn', 'shop_public_url_missing', { hint: 'defina PUBLIC_URL para ativar os pagamentos' });
+const notifier = new JoinNotifier({ url: ENV.notifyUrl, minGapSec: ENV.notifyMinGapSec, onError: (e) => log('warn', 'notify_failed', { err: String(e) }) });
 if (!ENV.databaseUrl) log('warn', 'shop_file_store', { dir: ENV.dataDir, hint: 'em produção use DATABASE_URL para não perder compras' });
 
 function serveStatic(req: IncomingMessage, res: ServerResponse) {
@@ -159,6 +161,7 @@ wss.on('connection', (ws, req) => {
         return;
       }
       joined = true;
+      if (!r.reconnected) notifier.playerJoined(sanitizeName(msg.name), rooms.summary().players);
       return;
     }
     if (!joined) return;
