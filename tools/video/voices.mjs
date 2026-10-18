@@ -43,6 +43,8 @@ function speakable(s) {
     .replace(/\bGG\b/gi, 'gê gê')
     .replace(/\bRIP\b/g, 'descanse em paz')
     .replace(/\bIA\b/g, 'i a')
+    .replace(/PKirq/g, 'Pê Quirk')
+    .replace(/PKirq/g, 'Pê Quirk')
     .replace(/\s+/g, ' ')
     .trim();
 }

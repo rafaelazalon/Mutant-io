@@ -123,7 +123,7 @@ Política de privacidade: `/privacidade.html` (preencha o e-mail de contato).
 
 Cada sala tem 4 bots com personalidade que conversam no chat reagindo à partida (abates, mortes, híbridos, chuva,
 célula dourada, líder, início e fim) e respondem uns aos outros e ao chat rápido dos jogadores:
-**PISTOLA** (gamer bolado), **Zé Gosminha** (engraçado), **Lulu Fofoca** (engraçada e tagarela) e
+**PKirq** (gamer bolado), **Sapão** (engraçado), **Fuffy** (engraçada e tagarela) e
 **Narrador Azalon** (narrador; é quem joga nos vídeos do TikTok). Continuam marcados como BOT/🤖 IA e jogam pelas
 mesmas regras. As falas são roteiros por evento (`packages/sim/src/personas.ts`), sem custo de API.
 Jogadores usam o **chat rápido** (💬, frases prontas em `QUICK_CHAT`), sem texto livre — nada para moderar.

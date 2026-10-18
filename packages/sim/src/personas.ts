@@ -11,9 +11,9 @@ import type { World } from './world.js';
 export type PersonaId = 'bolado' | 'zoeiro' | 'tagarela' | 'narrador';
 
 export const PERSONAS: Record<PersonaId, { name: string; hue: number; difficulty: BotDifficulty; gap: number }> = {
-  bolado: { name: 'PISTOLA', hue: 0, difficulty: 'dificil', gap: 5 },
-  zoeiro: { name: 'Zé Gosminha', hue: 95, difficulty: 'normal', gap: 6 },
-  tagarela: { name: 'Lulu Fofoca', hue: 300, difficulty: 'normal', gap: 4 },
+  bolado: { name: 'PKirq', hue: 0, difficulty: 'dificil', gap: 5 },
+  zoeiro: { name: 'Sapão', hue: 95, difficulty: 'normal', gap: 6 },
+  tagarela: { name: 'Fuffy', hue: 300, difficulty: 'normal', gap: 4 },
   narrador: { name: 'Narrador Azalon', hue: 45, difficulty: 'dificil', gap: 4 },
 };
 export const PERSONA_ORDER: PersonaId[] = ['narrador', 'bolado', 'zoeiro', 'tagarela'];
@@ -48,15 +48,15 @@ type Trigger =
 /** {k} abatedor · {v} vítima · {n} número · {m} mutação/híbrido · {a} quem falou antes */
 const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
   bolado: {
-    reply_zoeiro: ['Zé, sua piada é pior que seu jogo.', 'Para de gracinha, Zé!', 'Zé, vou te comer só pra você parar de falar.'],
-    reply_tagarela: ['Lulu, menos fofoca e mais mordida!', 'Lulu, eu NÃO tô bravo! ...Tô sim.', 'Fala menos, Lulu!'],
+    reply_zoeiro: ['Sapão, sua piada é pior que seu jogo.', 'Para de gracinha, Sapão!', 'Sapão, vou te comer só pra você parar de falar.'],
+    reply_tagarela: ['Fuffy, menos fofoca e mais mordida!', 'Fuffy, eu NÃO tô bravo! ...Tô sim.', 'Fala menos, Fuffy!'],
     reply_narrador: ['Narra direito, Narrador! Eu tô ganhando!', 'Ô Narrador, fala do MEU lance!', 'Para de narrar e vem pro X1, Narrador!'],
     start: ['Bora. Hoje ninguém me segura. NINGUÉM.', 'Quem encostar em mim vai virar sopa.', 'Tô focado. Não fala comigo.', 'Essa partida é minha, já aviso.'],
     kill: ['ENGOLE ESSA, {v}!', 'Sai da minha arena, {v}!', 'Fácil demais. FÁCIL DEMAIS.', '{v}, volta pro tutorial.', 'Isso é skill, não é sorte!'],
     died: ['QUE ISSO?! FOI LAG! LAG!', '{k}, isso foi pura sorte e você sabe!', 'NÃO ACREDITO. Eu tava de costas!', 'Ah não. Ah não não não. Revanche AGORA, {k}!', 'Meu controle travou, certeza.', 'Tá de brincadeira comigo, {k}?!'],
     died_acid: ['Quem colocou esse ácido aí?! Ontem não tinha!', 'O ÁCIDO ME EMPURROU.'],
     backstab: ['Pelas costas, {v}? Pois é, aprende.', 'Nunca vire as costas pra mim!'],
-    streak: ['{n} SEGUIDOS! Alguém me para? NINGUÉM!', 'Tô PISTOLA e imparável. {n}!'],
+    streak: ['{n} SEGUIDOS! Alguém me para? NINGUÉM!', 'Tô pistola e imparável. {n}!'],
     evo: ['{m}. Agora sim, agora o bicho pega.', 'Peguei {m}. Corram.'],
     hybrid: ['HÍBRIDO! {m}! Agora vocês tão ferrados!'],
     rain: ['Essa chuva é MINHA, saiam da frente!'],
@@ -66,14 +66,14 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     end_win: ['GANHEI! Chora não, chora não!', 'Eu avisei. Eu AVISEI.'],
     end_lose: ['Essa não valeu. Próxima eu amasso todo mundo.', 'Perdi pro lag, não pra vocês.'],
     gg: ['GG é o caramba, quero revanche!', 'gg... mas próxima é minha.'],
-    x1: ['X1? Aceito. Vou te amassar.', 'Vem! Vem que eu tô PISTOLA!'],
+    x1: ['X1? Aceito. Vou te amassar.', 'Vem! Vem que eu tô pistola!'],
     laugh: ['Tá rindo de quê?!', 'Engraçado vai ser quando eu te pegar.'],
     other_kill: ['Hunf. Até eu faria melhor.'],
     reply: ['Fica quieto, {a}!', 'Ninguém te perguntou, {a}!', 'Vou te pegar depois, {a}.', 'Para de falar e vem lutar, {a}!'],
   },
   zoeiro: {
-    reply_bolado: ['Calma, PISTOLA, respira na gosminha!', 'PISTOLA bravo de novo kkkk', 'PISTOLA, quer um abraço? Não? Ok.'],
-    reply_tagarela: ['Lulu, você fala mais que eu como!', 'Lulu, conta a fofoca toda!', 'Lulu, eu ouvi meu nome?'],
+    reply_bolado: ['Calma, PKirq, respira na gosminha!', 'PKirq bravo de novo kkkk', 'PKirq, quer um abraço? Não? Ok.'],
+    reply_tagarela: ['Fuffy, você fala mais que eu como!', 'Fuffy, conta a fofoca toda!', 'Fuffy, eu ouvi meu nome?'],
     reply_narrador: ['Narrador, fala que eu sou lindo!', 'Narrador, manda um salve pra minha mãe!', 'Narrador, narra eu comendo também!'],
     start: ['Cheguei! Alguém trouxe lanche?', 'Prometo não morrer nos primeiros 10 segundos. Talvez.', 'Hoje eu viro a maior gosma do Brasil!', 'Bom dia, galera da placa de Petri!'],
     kill: ['Desculpa {v}, foi sem querer. Mentira, foi querendo.', 'Nhac! {v} tava com gostinho de morango.', '{v} virou suco. Suco de {v}.', 'Ops! Comi {v}. Tava na dieta, juro.'],
@@ -97,8 +97,8 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     reply: ['Calma, {a}, toma uma água!', '{a}, você fala igual meu tio no churrasco.', 'Concordo com {a}. Não entendi, mas concordo.', 'Anotado, {a}. Anotei na minha gosma.'],
   },
   tagarela: {
-    reply_bolado: ['Ai PISTOLA, sorri um pouquinho!', 'PISTOLA, você tá bravo ou com fome?', 'Gente, o PISTOLA tá pistola de novo!'],
-    reply_zoeiro: ['Zé, para que eu rio e morro!', 'Kkkkk Zé, você não existe!', 'Zé, essa foi boa! Mentira, foi péssima!'],
+    reply_bolado: ['Ai PKirq, sorri um pouquinho!', 'PKirq, você tá bravo ou com fome?', 'Gente, o PKirq tá pistola de novo!'],
+    reply_zoeiro: ['Sapão, para que eu rio e morro!', 'Kkkkk Sapão, você não existe!', 'Sapão, essa foi boa! Mentira, foi péssima!'],
     reply_narrador: ['Narrador, fala de mim! Fala de mim!', 'Narrador, sua voz é linda!', 'Narrador, quem tá ganhando? Sou eu, né?'],
     start: ['Oiii gente! Tudo bem com vocês? Comigo tudo ótimo!', 'Ai que saudade dessa arena! Vocês viram a chuva da última partida?', 'Gente, hoje eu tô me sentindo uma célula muito poderosa!', 'Oi oi oi! Quem quer ser meu amigo hoje?'],
     kill: ['Ai {v}, me desculpa! Mas você tava pedindo, né?', 'Gente, eu comi {v}! Contei pra alguém? Tô contando!', 'Foi mal, {v}! Depois a gente conversa!', 'Ai que vergonha, comi {v}! Mentira, nem tenho vergonha.'],
@@ -110,7 +110,7 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     hybrid: ['GENTE! Virei {m}! Alguém me grava!'],
     rain: ['Chuvaaa! Corre todo mundo, eu chego primeiro!'],
     golden: ['Uma célula dourada! Parece um brinco! Quero!'],
-    idle: ['Vocês sabiam que eu tenho 3 olhos quando evoluo? Charme.', 'Gente, o Zé tá parado faz tempo, será que ele dormiu?', 'Alguém viu o PISTOLA? Ele tá bravo de novo?', 'Ai, adoro essa música da arena!', 'Fofoca: o Narrador fica ensaiando as falas sozinho!'],
+    idle: ['Vocês sabiam que eu tenho 3 olhos quando evoluo? Charme.', 'Gente, o Sapão tá parado faz tempo, será que ele dormiu?', 'Alguém viu o PKirq? Ele tá bravo de novo?', 'Ai, adoro essa música da arena!', 'Fofoca: o Narrador fica ensaiando as falas sozinho!'],
     leader: ['Primeiro lugar! Mãe, olha eu na TV!'],
     end_win: ['GANHEI! Obrigada, obrigada, autógrafos depois!'],
     end_lose: ['Perdi mas fiz amigos! Quer dizer, comi alguns...'],
@@ -122,9 +122,9 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     reply: ['Ai, {a}, para que eu rio!', 'Concordo com {a}! Quer dizer, mais ou menos.', '{a}, depois me conta isso direito!', 'Gente, {a} tá impossível hoje!'],
   },
   narrador: {
-    reply_bolado: ['PISTOLA está irritadíssimo, torcida! Alguém segura!', 'Olha a provocação de PISTOLA! Clima quente na arena!', 'PISTOLA reclama da arbitragem! Mas não tem juiz!'],
-    reply_zoeiro: ['Zé Gosminha fazendo graça em campo! Que figura!', 'A torcida ri com Zé Gosminha!', 'Zé Gosminha, sempre ele, o palhaço da arena!'],
-    reply_tagarela: ['Lulu Fofoca não para de falar, torcida! Nem de morder!', 'Lulu Fofoca com mais uma revelação bombástica!', 'E a Lulu Fofoca solta o verbo!'],
+    reply_bolado: ['PKirq está irritadíssimo, torcida! Alguém segura!', 'Olha a provocação de PKirq! Clima quente na arena!', 'PKirq reclama da arbitragem! Mas não tem juiz!'],
+    reply_zoeiro: ['Sapão fazendo graça em campo! Que figura!', 'A torcida ri com Sapão!', 'Sapão, sempre ele, o palhaço da arena!'],
+    reply_tagarela: ['Fuffy não para de falar, torcida! Nem de morder!', 'Fuffy com mais uma revelação bombástica!', 'E a Fuffy solta o verbo!'],
     other_hybrid: ['{k} FORMOU UM HÍBRIDO! {m}! Que raridade, torcida!', 'Olha isso! {k} virou {m}! Ninguém segura!'],
     start: ['Boa noite, torcida! Começa mais uma partida na arena dos mutantes!', 'Rolou a bola! Quer dizer, rolou a gosma! Começou!', 'Atenção, Brasil! Os mutantes estão em campo!', 'Abrem-se as cortinas! Quem vai evoluir mais hoje?'],
     kill: ['E EU DEVORO {v}! QUE LANCE, MINHA GENTE!', 'Toma, {v}! Golaço de mordida!', 'O narrador também joga, torcida! {v} fora!'],
