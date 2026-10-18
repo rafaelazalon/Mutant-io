@@ -17,8 +17,19 @@ function setup(personas = true) {
 }
 
 describe('chat e personagens de IA', () => {
-  it('os 4 personagens entram como bots marcados e conversam durante a partida', () => {
+  it('no jogo: só falam quando alguém entra e quando morrem', () => {
     const { room, run, chats } = setup();
+    room.join('a', 'Ana');
+    run(80);
+    const ai = chats().filter((m) => m.k === 0);
+    assert.ok(ai.length >= 1, 'boas-vindas');
+    assert.ok(ai.some((m) => m.s.includes('Ana')), 'cumprimenta quem entrou');
+    assert.ok(ai.length < 25, `falas demais no modo calmo: ${ai.length}`);
+  });
+
+  it('na gravação (modo show) os 4 personagens conversam bastante', () => {
+    const { room, run, chats } = setup();
+    room.chat.mode = 'show';
     room.join('a', 'Ana');
     run(80);
     const names = new Set(Object.values(PERSONAS).map((p) => p.name));
@@ -26,7 +37,7 @@ describe('chat e personagens de IA', () => {
     assert.equal(personaBots.length, 4);
     assert.ok(personaBots.every((p) => p.isBot && names.has(p.name)), 'personagens são sempre bots');
     const ai = chats().filter((m) => m.k === 0);
-    assert.ok(ai.length >= 5, `falas: ${ai.length}`);
+    assert.ok(ai.length >= 20, `falas: ${ai.length}`);
     assert.ok(ai.every((m) => names.has(m.n)), 'só personagens falam como IA');
     assert.ok(new Set(ai.map((m) => m.n)).size >= 3, 'vários personagens participam');
     assert.ok(ai.every((m) => !/\{\w\}/.test(m.s)), 'sem marcadores sobrando');

@@ -121,8 +121,9 @@ Política de privacidade: `/privacidade.html` (preencha o e-mail de contato).
 
 ## Personagens de IA e chat
 
-Cada sala tem 4 bots com personalidade que conversam no chat reagindo à partida (abates, mortes, híbridos, chuva,
-célula dourada, líder, início e fim) e respondem uns aos outros e ao chat rápido dos jogadores:
+Cada sala tem 4 bots com personalidade. No jogo eles ficam quietos: só dão boas-vindas quando um jogador entra e
+reclamam quando morrem. Nos vídeos do TikTok (`chat.mode = 'show'`) conversam bastante, reagindo à partida (abates,
+híbridos, chuva, célula dourada, líder) e respondendo uns aos outros:
 **PKirq** (gamer bolado), **Sapão** (engraçado), **Fuffy** (engraçada e tagarela) e
 **Narrador Azalon** (narrador; é quem joga nos vídeos do TikTok). Continuam marcados como BOT/🤖 IA e jogam pelas
 mesmas regras. As falas são roteiros por evento (`packages/sim/src/personas.ts`), sem custo de API.

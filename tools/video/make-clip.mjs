@@ -93,6 +93,7 @@ await page.evaluate((s) => {
   }
   me.name = 'Narrador Azalon';
   me.hue = 45;
+  room.chat.mode = 'show'; // no vídeo eles conversam bastante
   room.chat.assign(me, 'narrador');
   w.metaDirty.add(me.id);
   // falas dos personagens (para as vozes do vídeo): horário em segundos de relógio, igual aos quadros

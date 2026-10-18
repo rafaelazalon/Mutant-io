@@ -43,11 +43,13 @@ type Trigger =
   | 'reply_zoeiro'
   | 'reply_tagarela'
   | 'reply_narrador'
-  | 'other_hybrid';
+  | 'other_hybrid'
+  | 'welcome';
 
 /** {k} abatedor · {v} vítima · {n} número · {m} mutação/híbrido · {a} quem falou antes */
 const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
   bolado: {
+    welcome: ['Chegou {a}. Mais um pra eu amassar.', '{a} entrou? Vem, que eu tô esperando.', 'Fala, {a}. Fica longe de mim que é melhor.'],
     reply_zoeiro: ['Sapão, sua piada é pior que seu jogo.', 'Para de gracinha, Sapão!', 'Sapão, vou te comer só pra você parar de falar.'],
     reply_tagarela: ['Fuffy, menos fofoca e mais mordida!', 'Fuffy, eu NÃO tô bravo! ...Tô sim.', 'Fala menos, Fuffy!'],
     reply_narrador: ['Narra direito, Narrador! Eu tô ganhando!', 'Ô Narrador, fala do MEU lance!', 'Para de narrar e vem pro X1, Narrador!'],
@@ -72,6 +74,7 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     reply: ['Fica quieto, {a}!', 'Ninguém te perguntou, {a}!', 'Vou te pegar depois, {a}.', 'Para de falar e vem lutar, {a}!'],
   },
   zoeiro: {
+    welcome: ['Olha quem chegou! {a}! Trouxe lanche?', 'Bem-vindo, {a}! Cuidado com o PKirq, ele morde.', 'Eaí {a}! Bora virar gosma junto!'],
     reply_bolado: ['Calma, PKirq, respira na gosminha!', 'PKirq bravo de novo kkkk', 'PKirq, quer um abraço? Não? Ok.'],
     reply_tagarela: ['Fuffy, você fala mais que eu como!', 'Fuffy, conta a fofoca toda!', 'Fuffy, eu ouvi meu nome?'],
     reply_narrador: ['Narrador, fala que eu sou lindo!', 'Narrador, manda um salve pra minha mãe!', 'Narrador, narra eu comendo também!'],
@@ -97,6 +100,7 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     reply: ['Calma, {a}, toma uma água!', '{a}, você fala igual meu tio no churrasco.', 'Concordo com {a}. Não entendi, mas concordo.', 'Anotado, {a}. Anotei na minha gosma.'],
   },
   tagarela: {
+    welcome: ['Oiii {a}! Seja bem-vindo! Quer ser meu amigo?', 'Gente, {a} chegou! Que alegria!', '{a}! Senta aí que eu te conto tudo da arena!'],
     reply_bolado: ['Ai PKirq, sorri um pouquinho!', 'PKirq, você tá bravo ou com fome?', 'Gente, o PKirq tá pistola de novo!'],
     reply_zoeiro: ['Sapão, para que eu rio e morro!', 'Kkkkk Sapão, você não existe!', 'Sapão, essa foi boa! Mentira, foi péssima!'],
     reply_narrador: ['Narrador, fala de mim! Fala de mim!', 'Narrador, sua voz é linda!', 'Narrador, quem tá ganhando? Sou eu, né?'],
@@ -122,6 +126,7 @@ const LINES: Record<PersonaId, Partial<Record<Trigger, string[]>>> = {
     reply: ['Ai, {a}, para que eu rio!', 'Concordo com {a}! Quer dizer, mais ou menos.', '{a}, depois me conta isso direito!', 'Gente, {a} tá impossível hoje!'],
   },
   narrador: {
+    welcome: ['Entra em campo {a}! A torcida aplaude!', 'Atenção, torcida: {a} chegou na arena!', 'Mais um competidor: {a}! Será que aguenta?'],
     reply_bolado: ['PKirq está irritadíssimo, torcida! Alguém segura!', 'Olha a provocação de PKirq! Clima quente na arena!', 'PKirq reclama da arbitragem! Mas não tem juiz!'],
     reply_zoeiro: ['Sapão fazendo graça em campo! Que figura!', 'A torcida ri com Sapão!', 'Sapão, sempre ele, o palhaço da arena!'],
     reply_tagarela: ['Fuffy não para de falar, torcida! Nem de morder!', 'Fuffy com mais uma revelação bombástica!', 'E a Fuffy solta o verbo!'],
@@ -170,6 +175,12 @@ export class ChatDirector {
   private lastQc = new Map<number, number>();
   private nextMsgId = 1;
   private recent = new Map<number, string[]>();
+  private welcomes: { name: string; id: number; at: number }[] = [];
+  /**
+   * quiet: no jogo de verdade os personagens só falam quando um jogador entra e quando eles morrem.
+   * show: na gravação dos vídeos conversam bastante (comentam tudo e respondem uns aos outros).
+   */
+  mode: 'quiet' | 'show' = 'quiet';
 
   constructor(
     private readonly rand: () => number,
@@ -197,9 +208,34 @@ export class ChatDirector {
   private say(w: World, pid: number, trigger: Trigger, vars: Record<string, string>, delay: number, chain = 1) {
     const persona = this.personaOf.get(pid);
     if (!persona || !LINES[persona][trigger]?.length) return;
+    if (this.mode === 'quiet') {
+      if (trigger !== 'welcome' && trigger !== 'died' && trigger !== 'died_acid') return;
+      chain = 0;
+    } else if (chain === 1) chain = 2;
     // um pedido pendente por personagem: o mais recente substitui o anterior
     this.queue = this.queue.filter((q) => q.pid !== pid);
     this.queue.push({ at: w.t + delay, pid, trigger, vars, chain });
+  }
+
+  /** Um jogador de verdade entrou na sala: um ou dois personagens dão boas-vindas. */
+  onJoin(w: World, p: Player) {
+    // os bots (e os personagens) podem entrar um pouco depois do jogador: cumprimenta assim que houver alguém
+    this.welcomes.push({ name: p.name, id: p.id, at: w.t });
+  }
+
+  private greet(w: World) {
+    while (this.welcomes.length) {
+      const wl = this.welcomes[0]!;
+      if (w.t - wl.at > 12) {
+        this.welcomes.shift();
+        continue;
+      }
+      const ids = [...this.personaOf.keys()].filter((id) => id !== wl.id);
+      if (!ids.length) return;
+      this.welcomes.shift();
+      const first = this.pick(ids);
+      for (const id of ids) if (id === first || this.rand() < 0.25) this.say(w, id, 'welcome', { a: wl.name }, 1 + this.rand() * 2.5);
+    }
   }
 
   /** Sistema: mensagens do jogo (sem personagem). */
@@ -227,7 +263,7 @@ export class ChatDirector {
 
   onPhase(w: World, ph: Phase, winner?: Player) {
     if (ph === 'playing') {
-      this.queue = [];
+      this.queue = this.queue.filter((q) => q.trigger === 'welcome');
       for (const id of this.personaOf.keys()) if (this.rand() < 0.6) this.say(w, id, 'start', {}, 0.6 + this.rand() * 4, 0);
       this.idleAt = w.t + 14 + this.rand() * 10;
       this.leaderId = -1;
@@ -277,6 +313,7 @@ export class ChatDirector {
   }
 
   tick(w: World, leader: Player | undefined) {
+    this.greet(w);
     // chuva anunciada
     if (w.rain && !this.rainSeen) {
       this.rainSeen = true;
@@ -290,12 +327,12 @@ export class ChatDirector {
     }
     // conversa à toa quando a partida está calma
     if (w.t >= this.idleAt && this.personaOf.size) {
-      this.idleAt = w.t + 16 + this.rand() * 18;
+      this.idleAt = w.t + (this.mode === 'show' ? 6 + this.rand() * 6 : 16 + this.rand() * 18);
       const ids = [...this.personaOf.keys()];
       this.say(w, this.pick(ids), 'idle', {}, 0, 1);
     }
     // entrega o que está pronto, com espaço entre as mensagens para dar para ler
-    if (w.t - this.lastAny < 1.4) return;
+    if (w.t - this.lastAny < (this.mode === 'show' ? 1.1 : 1.4)) return;
     this.queue.sort((a, b) => a.at - b.at);
     const i = this.queue.findIndex((q) => q.at <= w.t && w.t - (this.lastSaid.get(q.pid) ?? -99) >= PERSONAS[this.personaOf.get(q.pid)!].gap);
     if (i < 0) {
@@ -322,7 +359,7 @@ export class ChatDirector {
     // outro personagem pode responder (é aqui que eles "conversam" entre si)
     if (q.chain > 0) {
       const others = [...this.personaOf.keys()].filter((id) => id !== q.pid);
-      if (others.length && this.rand() < 0.5) {
+      if (others.length && this.rand() < (this.mode === 'show' ? 0.75 : 0.5)) {
         const who = this.pick(others);
         const pair = `reply_${persona}` as Trigger;
         const usePair = LINES[this.personaOf.get(who)!][pair]?.length && this.rand() < 0.75;

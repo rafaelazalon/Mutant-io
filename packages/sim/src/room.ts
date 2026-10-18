@@ -189,6 +189,7 @@ export class MatchRoom {
     }
     this.attachClient(clientId, p, false);
     this.log('info', 'join', { room: this.id, player: p.id, humans: this.humanCount });
+    this.chat.onJoin(this.world, p);
     return { ok: true, playerId: p.id, reconnected: false };
   }
 
@@ -484,7 +485,7 @@ export class MatchRoom {
       let leader: Player | undefined;
       for (const p of w.players.values()) if (!leader || p.score > leader.score) leader = p;
       this.chat.tick(w, leader);
-    } else if (this.phase === 'finished') this.chat.tick(w, undefined);
+    } else this.chat.tick(w, undefined);
     this.pendingEvents.push(...w.events);
     w.events = [];
 
