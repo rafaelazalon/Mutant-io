@@ -65,7 +65,8 @@ function serveStatic(req: IncomingMessage, res: ServerResponse) {
   const ext = extname(file);
   res.writeHead(200, {
     'content-type': MIME[ext] || 'application/octet-stream',
-    'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+    // páginas, service worker, manifesto e o código do jogo sempre revalidam (atualizações chegam na hora)
+    'cache-control': ext === '.html' || ext === '.js' || ext === '.css' || ext === '.webmanifest' ? 'no-cache' : 'public, max-age=3600',
     'x-content-type-options': 'nosniff',
   });
   createReadStream(file).pipe(res);

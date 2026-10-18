@@ -659,3 +659,8 @@ class App {
 const app = new App();
 // gancho de diagnóstico usado pelos testes de ponta a ponta
 (window as unknown as { __mutant: App }).__mutant = app;
+
+// instalável como app (PWA/Android): service worker só em https do próprio servidor do jogo
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|claudeusercontent/.test(location.hostname)) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
