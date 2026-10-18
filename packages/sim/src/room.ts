@@ -18,8 +18,11 @@ import {
   type Snapshot,
   type ZoneTuple,
   type Look,
+  type ChatMsg,
+  createRng,
 } from '@mutant/shared';
 import { BOT_NAMES, BotBrain, type BotDifficulty } from './bots.js';
+import { ChatDirector, PERSONAS, PERSONA_ORDER } from './personas.js';
 import { createPlayer, type Player } from './entities.js';
 import { World } from './world.js';
 
@@ -36,6 +39,8 @@ export interface RoomOptions {
   /** Chamado ao fim de cada partida (persistência de estatísticas). */
   onMatchEnd?: (rows: ResultRow[], room: MatchRoom) => void;
   log?: (level: 'info' | 'warn', msg: string, data?: Record<string, unknown>) => void;
+  /** Personagens de IA que conversam no chat (padrão: sim). */
+  personas?: boolean;
 }
 
 interface ClientView {
@@ -65,6 +70,9 @@ export class MatchRoom {
   matchId = 1;
 
   private clients = new Map<string, ClientView>();
+  /** chat: falas dos personagens de IA e chat rápido */
+  readonly chat: ChatDirector;
+  private readonly personas: boolean;
   private send: (clientId: string, msg: S2C) => void = () => {};
   private nextPlayerId = 1;
   private joinOrder = 0;
@@ -96,6 +104,10 @@ export class MatchRoom {
       (() => Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''));
     this.world.combatEnabled = false;
     this.world.collectEnabled = false;
+    this.personas = opts.personas ?? true;
+    // gerador separado: as falas não mudam a sequência aleatória da simulação
+    const chatRng = createRng((this.seedBase ^ 0x5bd1e995) >>> 0);
+    this.chat = new ChatDirector(() => chatRng.next(), (m) => this.broadcastChat(m));
   }
 
   setSender(fn: (clientId: string, msg: S2C) => void) {
@@ -250,6 +262,8 @@ export class MatchRoom {
       case 'ping':
         this.send(clientId, { t: 'pong', c: msg.c, s: Date.now() });
         return true;
+      case 'qc':
+        return this.chat.quick(this.world, p, msg.i);
       case 'leave':
         this.leave(clientId, true);
         return true;
@@ -264,19 +278,23 @@ export class MatchRoom {
 
   private addBot() {
     const used = new Set([...this.world.players.values()].map((p) => p.name));
-    const name = BOT_NAMES.find((n) => !used.has(n)) ?? `Bot ${this.nextPlayerId}`;
+    // os primeiros bots da sala são os personagens de IA que conversam no chat
+    const inUse = this.chat.personasInUse();
+    const persona = this.personas ? PERSONA_ORDER.find((id) => !inUse.has(id)) : undefined;
+    const name = persona ? PERSONAS[persona].name : BOT_NAMES.find((n) => !used.has(n)) ?? `Bot ${this.nextPlayerId}`;
     const p = createPlayer({
       id: this.nextPlayerId++,
       clientId: null,
       name,
-      hue: (this.nextPlayerId * HUE_STEP) % 360,
+      hue: persona ? PERSONAS[persona].hue : (this.nextPlayerId * HUE_STEP) % 360,
       isBot: true,
       joinOrder: this.joinOrder++,
       token: '',
     });
     const diffs: BotDifficulty[] = ['facil', 'normal', 'normal', 'dificil'];
     const diff = this.botDifficulty === 'normal' ? diffs[Math.floor(this.rand() * diffs.length)]! : this.botDifficulty;
-    p.bot = new BotBrain(diff, this.rand);
+    p.bot = new BotBrain(persona ? PERSONAS[persona].difficulty : diff, this.rand);
+    if (persona) this.chat.assign(p, persona);
     this.world.addPlayer(p);
     if (this.phase !== 'finished') this.world.spawn(p, this.phase === 'playing' ? this.world.catchUpFor() : 0);
   }
@@ -285,9 +303,13 @@ export class MatchRoom {
     let pick: Player | null = null;
     for (const p of this.world.players.values()) {
       if (!p.isBot) continue;
-      if (!pick || (!p.alive && pick.alive) || p.score < pick.score) pick = p;
+      // personagens saem por último
+      if (!pick || (pick.persona && !p.persona) || (!!pick.persona === !!p.persona && ((!p.alive && pick.alive) || p.score < pick.score))) pick = p;
     }
-    if (pick) this.world.removePlayer(pick.id);
+    if (pick) {
+      this.chat.release(pick.id);
+      this.world.removePlayer(pick.id);
+    }
   }
 
   private balanceBots() {
@@ -314,6 +336,15 @@ export class MatchRoom {
     const w = this.world;
     w.combatEnabled = ph === 'playing';
     w.collectEnabled = ph === 'playing';
+    const top = ph === 'finished' ? this.ranking()[0] : undefined;
+    this.chat.onPhase(w, ph, top ? w.players.get(top.id) : undefined);
+  }
+
+  private broadcastChat(m: ChatMsg) {
+    for (const v of this.clients.values()) {
+      const p = this.world.players.get(v.playerId);
+      if (p?.connected) this.send(v.clientId, { t: 'chat', m });
+    }
   }
 
   private startNewMatch() {
@@ -448,6 +479,12 @@ export class MatchRoom {
     w.globalToasts = [];
     for (const id of w.metaDirty) this.metaVersion.set(id, (this.metaVersion.get(id) ?? 0) + 1);
     w.metaDirty.clear();
+    if (this.phase === 'playing') {
+      this.chat.onEvents(w, w.events);
+      let leader: Player | undefined;
+      for (const p of w.players.values()) if (!leader || p.score > leader.score) leader = p;
+      this.chat.tick(w, leader);
+    } else if (this.phase === 'finished') this.chat.tick(w, undefined);
     this.pendingEvents.push(...w.events);
     w.events = [];
 

@@ -119,6 +119,15 @@ e `packages/shared/src/config.ts`.
 
 Política de privacidade: `/privacidade.html` (preencha o e-mail de contato).
 
+## Personagens de IA e chat
+
+Cada sala tem 4 bots com personalidade que conversam no chat reagindo à partida (abates, mortes, híbridos, chuva,
+célula dourada, líder, início e fim) e respondem uns aos outros e ao chat rápido dos jogadores:
+**PISTOLA** (gamer bolado), **Zé Gosminha** (engraçado), **Lulu Fofoca** (engraçada e tagarela) e
+**Narrador Azalon** (narrador; é quem joga nos vídeos do TikTok). Continuam marcados como BOT/🤖 IA e jogam pelas
+mesmas regras. As falas são roteiros por evento (`packages/sim/src/personas.ts`), sem custo de API.
+Jogadores usam o **chat rápido** (💬, frases prontas em `QUICK_CHAT`), sem texto livre — nada para moderar.
+
 ## Aviso de jogadores no celular
 
 Com `NOTIFY_URL=https://ntfy.sh/<tópico-secreto>`, o servidor manda uma notificação quando um jogador de verdade

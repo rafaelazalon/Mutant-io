@@ -81,6 +81,26 @@ await page.evaluate((s) => {
   let x = s;
   const r = () => ((x = (x * 16807) % 2147483647) / 2147483647);
   const brain = new Brain('dificil', r);
+  // quem joga no vídeo é o Narrador Azalon (o personagem que comenta a partida no chat)
+  const room = app.game.conn.room;
+  for (const o of [...w.players.values()]) {
+    if (o.persona === 'narrador') {
+      room.chat.release(o.id);
+      w.removePlayer(o.id);
+    }
+  }
+  me.name = 'Narrador Azalon';
+  me.hue = 45;
+  room.chat.assign(me, 'narrador');
+  w.metaDirty.add(me.id);
+  // as falas do narrador viram a legenda grande do vídeo
+  window.addEventListener('mx-chat', (e) => {
+    const m = e.detail;
+    if (m.pid !== me.id || !window.__capFree) return;
+    const c = document.getElementById('mx-cap');
+    c.textContent = '🎙️ ' + m.s;
+    c.style.borderColor = 'rgba(255,210,63,.8)';
+  });
   // começo acelerado para o vídeo ter evolução e briga logo nos primeiros segundos, no meio da arena
   me.x = w.W / 2 + (r() - 0.5) * 500;
   me.y = w.H / 2 + (r() - 0.5) * 500;
@@ -122,7 +142,10 @@ cdp.on('Page.screencastFrame', async (f) => {
 });
 await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 88, maxWidth: 1080, maxHeight: 1920, everyNthFrame: 1 });
 await wait(3500);
-await page.evaluate(() => (document.getElementById('mx-cap').style.top = '25%'));
+await page.evaluate(() => {
+  document.getElementById('mx-cap').style.top = '25%';
+  window.__capFree = true;
+});
 await wait(GAMEPLAY_SEC * 1000 - 3500);
 await page.evaluate(() => {
   document.getElementById('mx-cap').style.display = 'none';

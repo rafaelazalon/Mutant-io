@@ -50,6 +50,8 @@ export interface Player extends MoveBody {
   look: Look;
   isBot: boolean;
   bot: BotBrain | null;
+  /** personagem de IA com falas no chat (só bots, ou o jogador controlado pela IA nos vídeos) */
+  persona?: 'bolado' | 'zoeiro' | 'tagarela' | 'narrador';
   joinOrder: number;
 
   connected: boolean;

@@ -96,6 +96,7 @@ class App {
     };
     this.controls.onToggleBoard = () => (this.hud.boardCollapsed = !this.hud.boardCollapsed);
     this.renderer.onSelfEvent = (e) => this.onSelfEvent(e);
+    this.hud.onQuickChat = (i) => this.game?.conn.send({ t: 'qc', i });
     this.renderer.onKill = (e) => {
       const g = this.game;
       if (!g) return;
@@ -211,6 +212,7 @@ class App {
     this.renderer.fx.clear();
     this.hud.resetOffer();
     this.hud.streak = 0;
+    this.hud.clearChat();
     this.hud.modeTag.classList.toggle('hidden', conn.kind !== 'offline');
     conn.onOpen = () => {
       conn.send({ t: 'join', name: this.playerName(), mode: this.lastJoin.mode, code: this.lastJoin.code, token: this.token || undefined, look: this.account.look, acct: this.account.secret ?? undefined });
@@ -247,6 +249,10 @@ class App {
     g.onKicked = (reason) => {
       this.toMenu();
       this.flashStatus(`Desconectado: ${reason}`);
+    };
+    g.onChat = (m) => {
+      this.hud.chat(m);
+      window.dispatchEvent(new CustomEvent('mx-chat', { detail: m }));
     };
     g.onResults = () => setTimeout(() => this.showResults(), 1200);
     g.onNewMatch = () => {

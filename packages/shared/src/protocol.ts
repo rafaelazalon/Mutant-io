@@ -15,7 +15,21 @@ export type C2S =
   | { t: 'eq'; i: number }
   | { t: 'pick'; o: number; m: MutationId }
   | { t: 'ping'; c: number }
-  | { t: 'leave' };
+  | { t: 'leave' }
+  | { t: 'qc'; i: number };
+
+/** Chat rápido: só frases prontas (sem texto livre, então não há o que moderar). */
+export const QUICK_CHAT = ['GG! 🤝', 'Socorro! 😱', 'Vem pro X1! 😤', 'Kkkkk 😂', 'Que mutação é essa?! 🧬', 'Bora caçar o líder! 👑', 'Desculpa aí 😅', 'Partiu zona de energia ⚡'] as const;
+
+/** Mensagem do chat. k: 0 = personagem de IA (bot), 1 = chat rápido de jogador, 2 = sistema. */
+export interface ChatMsg {
+  id: number;
+  n: string;
+  h: number;
+  s: string;
+  k: 0 | 1 | 2;
+  pid?: number;
+}
 
 const NAME_MAX = 16;
 
@@ -69,6 +83,9 @@ export function parseC2S(raw: unknown): C2S | null {
       return { t: 'ping', c: m.c };
     case 'leave':
       return { t: 'leave' };
+    case 'qc':
+      if (!isInt(m.i) || m.i < 0 || m.i >= QUICK_CHAT.length) return null;
+      return { t: 'qc', i: m.i };
     case 'join': {
       const mode = m.mode === 'create' || m.mode === 'code' ? m.mode : 'public';
       const code = sanitizeRoomCode(m.code) ?? undefined;
@@ -244,6 +261,7 @@ export type S2C =
   | { t: 'offer'; id: number; opts: MutationId[]; exp: number }
   | { t: 'offerClosed'; id: number }
   | { t: 'toast'; text: string; kind: 'info' | 'warn' | 'good' | 'hybrid' }
+  | { t: 'chat'; m: ChatMsg }
   | { t: 'results'; matchId: number; rows: ResultRow[]; you: number; nextIn: number }
   | { t: 'newMatch'; matchId: number; hazards: HazardTuple[] }
   | { t: 'pong'; c: number; s: number }

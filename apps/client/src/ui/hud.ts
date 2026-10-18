@@ -1,4 +1,4 @@
-import { ABILITY_LABEL, HYBRIDS, MUTATIONS, hybridsCompletedBy, type AbilityId, type MutationId } from '@mutant/shared';
+import { ABILITY_LABEL, HYBRIDS, MUTATIONS, QUICK_CHAT, hybridsCompletedBy, type AbilityId, type ChatMsg, type MutationId } from '@mutant/shared';
 import type { ClientGame } from '../net/game.js';
 import { viewport } from './viewport.js';
 
@@ -67,6 +67,9 @@ export class Hud {
   private death: HTMLElement;
   readonly roomChip: HTMLButtonElement;
   readonly menuBtn: HTMLButtonElement;
+  private chatBox: HTMLElement;
+  private qcPop: HTMLElement;
+  onQuickChat: (i: number) => void = () => {};
   readonly modeTag: HTMLElement;
   private cache = new Map<string, string>();
   private offerShown = -1;
@@ -103,6 +106,22 @@ export class Hud {
     this.death = $(r, '.death');
     this.roomChip = $(r, '.room-chip');
     this.menuBtn = $(r, '.menu-btn');
+    this.chatBox = $(r, '.chat');
+    this.qcPop = $(r, '.qc-pop');
+    this.qcPop.innerHTML = QUICK_CHAT.map((t, i) => `<button type="button" data-i="${i}">${esc(t)}</button>`).join('');
+    const qcBtn = $(r, '.qc-btn');
+    qcBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.qcPop.classList.toggle('hidden');
+    });
+    this.qcPop.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      const b = (e.target as HTMLElement).closest('button');
+      if (!b) return;
+      this.onQuickChat(Number(b.dataset.i));
+      this.qcPop.classList.add('hidden');
+    });
+    window.addEventListener('pointerdown', () => this.qcPop.classList.add('hidden'));
     this.modeTag = $(r, '.mode-tag');
     this.buildPowers();
 
@@ -181,6 +200,20 @@ export class Hud {
     if (this.cache.get(key) === t) return;
     this.cache.set(key, t);
     el.textContent = t;
+  }
+
+  /** Mensagem no chat (personagens de IA, chat rápido e avisos). */
+  chat(m: ChatMsg) {
+    const d = document.createElement('div');
+    d.className = `cm${m.k === 2 ? ' sys' : ''}`;
+    d.innerHTML = m.k === 2 ? esc(m.s) : `${m.k === 0 ? '<span class="ai">🤖 IA</span>' : ''}<b style="color:hsl(${m.h} 90% 68%)">${esc(m.n)}:</b>${esc(m.s)}`;
+    this.chatBox.appendChild(d);
+    while (this.chatBox.children.length > 5) this.chatBox.firstChild?.remove();
+    setTimeout(() => d.remove(), 11000);
+  }
+
+  clearChat() {
+    this.chatBox.innerHTML = '';
   }
 
   /** Registro de abates (canto superior direito). */

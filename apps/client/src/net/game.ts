@@ -2,6 +2,7 @@ import {
   TICK_DT,
   sanitizeAxis,
   stepMovement,
+  type ChatMsg,
   type GameEvent,
   type HazardTuple,
   type LeaderRow,
@@ -106,6 +107,7 @@ export class ClientGame {
   onWelcome: (w: Welcome) => void = () => {};
   onResults: () => void = () => {};
   onNewMatch: () => void = () => {};
+  onChat: (m: ChatMsg) => void = () => {};
 
   /* previsão */
   body: MoveBody = { x: 0, y: 0, vx: 0, vy: 0, dashT: 0, dashDx: 0, dashDy: 0, dashSpeed: 0 };
@@ -155,6 +157,9 @@ export class ClientGame {
         break;
       case 'toast':
         this.onToast(m.text, m.kind);
+        break;
+      case 'chat':
+        this.onChat(m.m);
         break;
       case 'results':
         this.results = { rows: m.rows, you: m.you, nextIn: m.nextIn, receivedAt: performance.now(), matchId: m.matchId };
