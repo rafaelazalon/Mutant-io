@@ -1,5 +1,7 @@
 # MUTANT.IO
 
+**🎮 Jogue agora (grátis, no navegador do celular ou do computador): https://mutant-io.onrender.com** · também em https://rafaelazalon.github.io/Mutant-io/
+
 Jogo 2D multiplayer de sobrevivência e evolução biológica, para navegador (computador, celular e tablet).
 Cada jogador começa como um organismo simples, coleta biomassa, escolhe mutações (1 de 3 a cada nível)
 e pode formar híbridos raros. Partidas de 6 minutos, até 20 jogadores por sala, bots identificados.
