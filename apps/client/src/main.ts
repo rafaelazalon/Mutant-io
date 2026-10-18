@@ -96,6 +96,16 @@ class App {
     };
     this.controls.onToggleBoard = () => (this.hud.boardCollapsed = !this.hud.boardCollapsed);
     this.renderer.onSelfEvent = (e) => this.onSelfEvent(e);
+    this.renderer.onKill = (e) => {
+      const g = this.game;
+      if (!g) return;
+      const me = g.myId;
+      const killer = e.a >= 0 ? e.an ?? g.meta.get(e.a)?.name ?? '?' : undefined;
+      const victim = e.bn ?? g.meta.get(e.b)?.name ?? '?';
+      if (e.a === me && e.b !== me) this.hud.streak++;
+      if (e.b === me) this.hud.streak = 0;
+      this.hud.feed(e.a === me ? 'Você' : killer, e.b === me ? 'você' : victim, !!e.back, e.a === me ? 'mine' : e.b === me ? 'died' : '');
+    };
 
     // qualquer gesto destrava o áudio
     window.addEventListener('pointerdown', () => this.audio.unlock(), { passive: true });
@@ -200,6 +210,7 @@ class App {
     this.game = g;
     this.renderer.fx.clear();
     this.hud.resetOffer();
+    this.hud.streak = 0;
     this.hud.modeTag.classList.toggle('hidden', conn.kind !== 'offline');
     conn.onOpen = () => {
       conn.send({ t: 'join', name: this.playerName(), mode: this.lastJoin.mode, code: this.lastJoin.code, token: this.token || undefined, look: this.account.look, acct: this.account.secret ?? undefined });
@@ -241,6 +252,7 @@ class App {
     g.onNewMatch = () => {
       this.hud.resetOffer();
       this.hud.killerName = '';
+      this.hud.streak = 0;
       this.renderer.fx.clear();
       this.renderer.seedDecor(g.results?.matchId ?? Math.random() * 1000);
     };
@@ -348,7 +360,7 @@ class App {
       this.hud.showBanner(`${HYBRIDS[e.h].icon} HÍBRIDO: ${HYBRIDS[e.h].name}`, fresh.length ? 'Combinação rara descoberta!' : HYBRIDS[e.h].effect);
       this.updateCodexCount();
     } else if (e.k === 'kill' && e.b === g.myId) {
-      this.hud.killerName = e.a >= 0 ? g.meta.get(e.a)?.name ?? 'um mutante' : '';
+      this.hud.killerName = e.a >= 0 ? e.an ?? g.meta.get(e.a)?.name ?? 'um mutante' : '';
     }
   }
 
@@ -477,7 +489,11 @@ class App {
       </div>
       <h3>Regras</h3>
       <ul>
-        <li><b>Mordida automática</b>: encostar num rival morde. Quem tem mais nível e as mutações certas vence.</li>
+        <li><b>Mordida automática</b>: a boca morde quem estiver <b>à sua frente</b> ao encostar. Fugir de costas é arriscado: mordida <b>pelas costas</b> causa +35% de dano.</li>
+        <li><b>Sequência de abates</b> 🔥: cada abate seguido sem morrer vale mais pontos.</li>
+        <li><b>Chuva de biomassa</b> ☄: um aviso aparece e uma seta amarela aponta o local; em alguns segundos caem várias células ricas.</li>
+        <li><b>Célula dourada</b> ✨: rara, vale 15 de biomassa e aparece no minimapa de todos.</li>
+        <li>👑 O líder do placar usa uma coroa — todos sabem quem caçar.</li>
         <li><b>Zonas de energia</b> ⚡ dão biomassa e pontos, mas revelam você no minimapa de todos e cancelam a camuflagem.</li>
         <li><b>Ácido</b> ☣ causa dano contínuo.</li>
         <li>Ao ser eliminado, você renasce em 4s com <b>metade da biomassa</b>; mutações acima do novo nível se perdem.</li>

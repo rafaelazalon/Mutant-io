@@ -530,6 +530,7 @@ export class MatchRoom {
     const zones: ZoneTuple[] = w.zones.map((z) => [z.id, Math.round(z.x), Math.round(z.y), Math.round(z.r), Math.round((z.life / z.maxLife) * 100)]);
     const mm: [number, number][] = [];
     for (const p of w.players.values()) if (p.alive && w.zoneAt(p.x, p.y)) mm.push([Math.round(p.x), Math.round(p.y)]);
+    const markers = w.worldMarkers();
 
     for (const v of this.clients.values()) {
       const me = w.players.get(v.playerId);
@@ -576,7 +577,7 @@ export class MatchRoom {
         metaIds.push(d.ownerId);
       }
       const ev = this.pendingEvents
-        .filter((e) => e.owner === me.id || dist2(cx, cy, e.x, e.y) <= vr2)
+        .filter((e) => e.global || e.owner === me.id || dist2(cx, cy, e.x, e.y) <= vr2)
         .map((e) => e.ev);
 
       const snap: Snapshot = {
@@ -593,6 +594,7 @@ export class MatchRoom {
         dz,
         z: zones,
         ev,
+        wm: markers.length ? markers : undefined,
       };
       const isSlow = v.snaps % slow === 1 || slow === 1;
       if (isSlow) {

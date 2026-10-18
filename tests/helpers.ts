@@ -16,6 +16,10 @@ export function emptyWorld(seed = 1): World {
     ...GAME_CONFIG,
     biomass: { ...GAME_CONFIG.biomass, spawnPerSecBase: 0, spawnPerSecPerPlayer: 0 },
   };
+  // sem eventos do mapa (chuva/célula dourada), a menos que o teste peça
+  const ev = w as unknown as { nextRainAt: number; nextSuperAt: number };
+  ev.nextRainAt = Infinity;
+  ev.nextSuperAt = Infinity;
   return w;
 }
 

@@ -61,7 +61,11 @@ puderam ser instaladas nem testadas. Para entregar algo **funcional e verificado
 
 ## Regras principais
 
-- Mordida automática ao encostar (recarga 0,75 s); proteção de 2,5 s ao nascer e no início da partida.
+- Mordida automática ao encostar, só em quem está à frente (cone de ±80°); pelas costas causa +35% de dano.
+  Recarga 0,75 s; proteção de 2,5 s ao nascer e no início da partida.
+- Sequência de abates: cada abate seguido sem morrer dá +6 pontos extras (até +30).
+- Eventos do mapa: chuva de biomassa a cada 70–100 s (aviso de 6 s, seta e marcador para todos) e uma célula
+  dourada rara (15 de biomassa) a cada ~45 s, visível no minimapa de todos. O líder do placar usa uma coroa.
 - Níveis por biomassa acumulada (10, 25, 45, 75, 115, 165, 230, 310, 400). Cada nível: escolha entre 3 mutações;
   15 s para escolher, depois escolha automática. O jogo não pausa.
 - Ao morrer: renasce em 4 s com 50% da biomassa (40% cai no chão); mutações acima do novo nível se perdem.
@@ -131,5 +135,5 @@ O WebSocket usa `wss://` automaticamente quando a página é HTTPS. Nada foi pub
 
 - Contas e progressão persistente: esquema PostgreSQL pronto em `apps/server/src/persistence/schema.sql`;
   hoje as estatísticas ficam em memória (`MemoryStatsRepository`) e não incluem bots.
-- Cosméticos (apenas visuais), mapas alternativos e eventos de arena.
+- Mapas alternativos.
 - Balanceamento a partir de playtests reais.

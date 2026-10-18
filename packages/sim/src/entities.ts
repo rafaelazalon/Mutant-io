@@ -69,6 +69,9 @@ export interface Player extends MoveBody {
   kills: number;
   deaths: number;
   maxLevel: number;
+  /** abates seguidos sem morrer */
+  streak: number;
+  bestStreak: number;
 
   mutations: MutationId[];
   hybrids: HybridId[];
@@ -153,6 +156,8 @@ export function createPlayer(init: {
     kills: 0,
     deaths: 0,
     maxLevel: 0,
+    streak: 0,
+    bestStreak: 0,
     mutations: [],
     hybrids: [],
     stats,
@@ -178,7 +183,7 @@ export interface Pellet {
   x: number;
   y: number;
   value: number;
-  kind: 0 | 1 | 2;
+  kind: 0 | 1 | 2 | 3;
   /** movida pela língua neste tick */
   moved: boolean;
 }

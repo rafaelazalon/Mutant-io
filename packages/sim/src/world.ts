@@ -29,6 +29,8 @@ export interface LocatedEvent {
   ev: GameEvent;
   x: number;
   y: number;
+  /** enviado a todos, não só a quem está perto (abates, eventos do mapa) */
+  global?: boolean;
   /** jogador que deve receber mesmo fora do raio de visão */
   owner?: number;
 }
@@ -72,6 +74,12 @@ export class World {
   collectEnabled = true;
 
   private nextPelletId = 1;
+  /** chuva de biomassa anunciada (cai quando t >= at) */
+  rain: { x: number; y: number; at: number } | null = null;
+  private nextRainAt = 0;
+  /** célula dourada atual (id da partícula) */
+  superCellId = -1;
+  private nextSuperAt = 0;
   private nextDecoyId = 1;
   private nextZoneId = 1;
   private nextOfferId = 1;
@@ -113,6 +121,10 @@ export class World {
     }
     for (let i = 0; i < this.cfg.zones.count; i++) this.zones.push(this.makeZone());
     for (let i = 0; i < this.cfg.biomass.maxPellets * 0.85; i++) this.spawnPellet();
+    this.rain = null;
+    this.superCellId = -1;
+    this.nextRainAt = this.t + this.cfg.events.rainFirstSec;
+    this.nextSuperAt = this.t + this.cfg.events.superEverySec * 0.5;
   }
 
   private freePoint(margin: number, avoidPlayers = 0, hazardPad = 20): { x: number; y: number } {
@@ -159,7 +171,7 @@ export class World {
     return null;
   }
 
-  spawnPellet(x?: number, y?: number, value?: number, kind?: 0 | 1 | 2): Pellet | null {
+  spawnPellet(x?: number, y?: number, value?: number, kind?: 0 | 1 | 2 | 3): Pellet | null {
     const b = this.cfg.biomass;
     if (x === undefined || y === undefined) {
       if (this.pellets.size >= b.maxPellets) return null;
@@ -215,6 +227,8 @@ export class World {
     p.kills = 0;
     p.deaths = 0;
     p.maxLevel = 0;
+    p.streak = 0;
+    p.bestStreak = 0;
     p.mutations = [];
     p.hybrids = [];
     p.level = 0;
@@ -537,6 +551,7 @@ export class World {
     v.alive = false;
     v.hp = 0;
     v.deaths++;
+    v.streak = 0;
     v.respawnAt = this.t + this.cfg.respawnDelaySec;
     v.dashT = 0;
     v.vx = v.vy = 0;
@@ -558,13 +573,19 @@ export class World {
     if (v.offer && this.pendingEvolutions(v) <= 0) this.closeOffer(v);
 
     const k = killerId >= 0 ? this.players.get(killerId) : undefined;
-    this.emit({ k: 'kill', a: killerId, b: v.id, x: v.x, y: v.y }, v.x, v.y, v.id);
+    const back = this.lastBiteBack.get(v.id) === killerId && this.t - (this.lastBiteAt.get(v.id) ?? -9) < 0.2;
+    this.events.push({ ev: { k: 'kill', a: killerId, b: v.id, x: v.x, y: v.y, bn: v.name, ...(k && k !== v ? { an: k.name } : {}), ...(back ? { back: 1 as const } : {}) }, x: v.x, y: v.y, owner: v.id, global: true });
     if (k && k !== v) {
+      const sc = this.cfg.score;
       k.kills++;
-      k.score += this.cfg.score.killBase + this.cfg.score.killPerVictimLevel * v.level;
-      this.globalToasts.push({ text: `${k.name} eliminou ${v.name}`, kind: 'info' });
-    } else {
-      this.globalToasts.push({ text: `${v.name} foi dissolvido pelo ácido`, kind: 'info' });
+      k.streak++;
+      k.bestStreak = Math.max(k.bestStreak, k.streak);
+      k.score += sc.killBase + sc.killPerVictimLevel * v.level + sc.streakBonus * Math.min(sc.streakBonusMax, k.streak - 1);
+      if (k.streak >= 2) this.events.push({ ev: { k: 'streak', a: k.id, n: k.streak }, x: k.x, y: k.y, owner: k.id, global: k.streak >= 3 });
+      if (k.streak === 3 || k.streak === 5 || k.streak === 8) {
+        const label = k.streak >= 8 ? 'é uma lenda' : k.streak >= 5 ? 'está imparável' : 'está em fúria';
+        this.globalToasts.push({ text: `🔥 ${k.name} ${label}: ${k.streak} abates seguidos!`, kind: 'warn' });
+      }
     }
   }
 
@@ -667,7 +688,55 @@ export class World {
       }
     }
 
+    if (this.collectEnabled) this.worldEvents();
+
     for (const p of this.players.values()) this.ensureOffer(p);
+  }
+
+  /** Chuva de biomassa (com aviso) e célula dourada rara: motivos para atravessar o mapa. */
+  private worldEvents() {
+    const ev = this.cfg.events;
+    if (!this.rain && this.t >= this.nextRainAt) {
+      const pt = this.freePoint(ev.rainRadius + 120, 0, ev.rainRadius * 0.6);
+      this.rain = { x: pt.x, y: pt.y, at: this.t + ev.rainWarnSec };
+      this.globalToasts.push({ text: `☄️ Chuva de biomassa em ${ev.rainWarnSec}s!`, kind: 'good' });
+    }
+    if (this.rain && this.t >= this.rain.at) {
+      const { x, y } = this.rain;
+      for (let i = 0; i < ev.rainPellets; i++) {
+        const a = this.rng.range(0, Math.PI * 2);
+        const d = Math.sqrt(this.rng.next()) * ev.rainRadius;
+        const px = x + Math.cos(a) * d;
+        const py = y + Math.sin(a) * d;
+        if (this.inHazard(px, py, 10)) continue;
+        this.spawnPellet(px, py, ev.rainValue, 1);
+      }
+      this.events.push({ ev: { k: 'rain', x: Math.round(x), y: Math.round(y), r: ev.rainRadius }, x, y, global: true });
+      this.rain = null;
+      this.nextRainAt = this.t + this.rng.range(ev.rainEveryMinSec, ev.rainEveryMaxSec);
+    }
+    if (this.superCellId >= 0 && !this.pellets.has(this.superCellId)) {
+      this.superCellId = -1;
+      this.nextSuperAt = this.t + ev.superEverySec;
+    }
+    if (this.superCellId < 0 && this.t >= this.nextSuperAt) {
+      const pt = this.freePoint(200, 300, 60);
+      const p = this.spawnPellet(pt.x, pt.y, ev.superValue, 3);
+      if (p) {
+        this.superCellId = p.id;
+        this.events.push({ ev: { k: 'superSpawn', x: Math.round(p.x), y: Math.round(p.y) }, x: p.x, y: p.y, global: true });
+        this.globalToasts.push({ text: '✨ Célula dourada no mapa!', kind: 'good' });
+      }
+    }
+  }
+
+  /** Marcadores do mundo para o HUD de todos os jogadores. */
+  worldMarkers(): [number, number, number, number][] {
+    const out: [number, number, number, number][] = [];
+    if (this.rain) out.push([0, Math.round(this.rain.x), Math.round(this.rain.y), Math.max(0, Math.round((this.rain.at - this.t) * 10) / 10)]);
+    const sc = this.superCellId >= 0 ? this.pellets.get(this.superCellId) : undefined;
+    if (sc) out.push([1, Math.round(sc.x), Math.round(sc.y), 0]);
+    return out;
   }
 
   private tickTimers(p: Player, dt: number) {
@@ -737,8 +806,19 @@ export class World {
     }
   }
 
+  /** Mordidas de quem tem a última mordida e se foi pelas costas (para o evento de abate). */
+  private lastBiteBack = new Map<number, number>();
+  private lastBiteAt = new Map<number, number>();
+
+  /** O alvo está no cone frontal do atacante? (a mordida só acerta de frente) */
+  private inFront(p: Player, x: number, y: number, d: number) {
+    if (d < 1) return true;
+    return (p.faceX * (x - p.x) + p.faceY * (y - p.y)) / d >= this.cfg.combat.biteFrontCos;
+  }
+
   private bites() {
     const T = MUTATION_PARAMS.espinhos_externos;
+    const C = this.cfg.combat;
     const ext = 10;
     for (const p of this.players.values()) {
       if (!p.alive || p.biteCd > 0 || p.status.protectT > 0) continue;
@@ -748,7 +828,7 @@ export class World {
         if (o === p || !o.alive || o.status.protectT > 0) continue;
         const reach = p.stats.radius + o.stats.radius + ext;
         const d = dist2(p.x, p.y, o.x, o.y);
-        if (d <= reach * reach && d < bestD) {
+        if (d <= reach * reach && d < bestD && this.inFront(p, o.x, o.y, Math.sqrt(d))) {
           best = o;
           bestD = d;
         }
@@ -758,7 +838,7 @@ export class World {
         if (d.ownerId === p.id) continue;
         const reach = p.stats.radius + p.stats.radius + ext;
         const dd = dist2(p.x, p.y, d.x, d.y);
-        if (dd <= reach * reach && dd < bestD) {
+        if (dd <= reach * reach && dd < bestD && this.inFront(p, d.x, d.y, Math.sqrt(dd))) {
           bestD = dd;
           decoyId = d.id;
           best = null;
@@ -772,22 +852,27 @@ export class World {
       }
       if (!best) continue;
       const o = best;
+      const dist = Math.sqrt(bestD) || 1;
       let raw = p.stats.biteDamage;
       if (p.status.biteBonusT > 0) {
         raw *= MUTATION_PARAMS.cauda_propulsora.biteBonusMul;
         p.status.biteBonusT = 0;
       }
+      // pelas costas: o alvo está virado para longe do atacante
+      const back = (o.faceX * (o.x - p.x) + o.faceY * (o.y - p.y)) / dist >= C.backstabCos;
+      if (back) raw *= C.backstabMul;
       p.biteCd = p.stats.biteCooldown;
       p.status.cloakT = 0;
       const ox = o.x;
       const oy = o.y;
+      this.lastBiteBack.set(o.id, back ? p.id : -2);
+      this.lastBiteAt.set(o.id, this.t);
       const dealt = this.damage(o, raw, p.id);
       if (dealt > 0) {
-        this.emit({ k: 'bite', a: p.id, b: o.id, d: Math.round(dealt), x: ox, y: oy }, ox, oy);
-        const d = Math.sqrt(bestD) || 1;
+        this.emit({ k: 'bite', a: p.id, b: o.id, d: Math.round(dealt), x: ox, y: oy, ...(back ? { back: 1 as const } : {}) }, ox, oy);
         if (o.alive) {
-          o.vx += ((o.x - p.x) / d) * 140;
-          o.vy += ((o.y - p.y) / d) * 140;
+          o.vx += ((o.x - p.x) / dist) * 140;
+          o.vy += ((o.y - p.y) / dist) * 140;
         }
       }
       // espinhos reagem ao contato da mordida (inclusive bloqueada), com limite por atacante

@@ -21,6 +21,8 @@ export interface CreatureDraw {
   bite?: number;
   /** aparência comprada/equipada (só visual) */
   look?: Look;
+  /** vida em % (para o brilho de perigo) */
+  hp?: number;
 }
 
 const HYBRID_COLORS: Record<HybridId, string> = {
@@ -380,6 +382,8 @@ export function drawCreature(ctx: CanvasRenderingContext2D, c: CreatureDraw, tim
   }
 
   ctx.rotate(angle);
+  // bote para a frente durante a mordida
+  if (bite > 0) ctx.translate(bite * r * 0.22, 0);
   const stretch = 1 + Math.min(0.18, speed / 1500) + (dashing ? 0.18 : 0);
   const hurt = (flags & FLAG.hurt) !== 0;
   const breathe = 1 + Math.sin(tt * 2.4) * 0.025;
@@ -455,6 +459,24 @@ export function drawCreature(ctx: CanvasRenderingContext2D, c: CreatureDraw, tim
   // corpo pronto
   const body = getBody(c, hq, resB);
   ctx.drawImage(body.c, -body.half, -body.half, body.half * 2, body.half * 2);
+
+  // núcleo vivo que pulsa (mais forte nos níveis altos)
+  if (hq && lv >= 3) {
+    const beat = Math.pow(Math.max(0, Math.sin(tt * (2.2 + lv * 0.15))), 6);
+    const gs = r * (0.55 + lv * 0.03 + beat * 0.18);
+    ctx.globalAlpha = c.alpha * (0.25 + beat * 0.35);
+    ctx.drawImage(glow(light, 32), -r * 0.2 - gs, -gs, gs * 2, gs * 2);
+    ctx.globalAlpha = c.alpha;
+  }
+  // em perigo: contorno vermelho pulsando
+  if (c.hp !== undefined && c.hp < 30) {
+    const k = 0.5 + 0.5 * Math.sin(time * 10);
+    ctx.strokeStyle = `rgba(255,60,80,${0.35 + k * 0.45})`;
+    ctx.lineWidth = Math.max(2, r * 0.08);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.04, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   // antenas
   if (muts.has('pulso_bioeletrico')) {
@@ -592,6 +614,33 @@ export function drawCreature(ctx: CanvasRenderingContext2D, c: CreatureDraw, tim
     ctx.strokeStyle = `rgba(255,224,102,${0.9 * p})`;
     ctx.lineWidth = 3;
     ctx.stroke();
+    if (hq) {
+      // favo de mel orgânico na bolha
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = `rgba(255,240,170,${0.28 * p})`;
+      ctx.lineWidth = 1.5;
+      const hs = R * 0.34;
+      const rot = time * 0.4;
+      ctx.rotate(rot);
+      ctx.beginPath();
+      for (let gy = -3; gy <= 3; gy++) {
+        for (let gx = -3; gx <= 3; gx++) {
+          const cx = gx * hs * 1.5;
+          const cy = gy * hs * 1.732 + (gx & 1 ? hs * 0.866 : 0);
+          if (cx * cx + cy * cy > R * R * 1.3) continue;
+          for (let i = 0; i <= 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const px = cx + Math.cos(a) * hs;
+            const py = cy + Math.sin(a) * hs;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.strokeStyle = 'rgba(255,255,230,0.95)';
     ctx.lineWidth = 4;
     ctx.beginPath();

@@ -55,10 +55,31 @@ export function pelletSprite(kind: number): Cnv {
   c = make(S, S, (x) => {
     const m = S / 2;
     // halo embutido (evita um segundo desenho por partícula)
-    x.globalAlpha = kind === 1 ? 0.7 : 0.45;
-    x.drawImage(glow(kind === 1 ? '#ffd23f' : kind === 2 ? '#ff7a4d' : '#6dff5a', 64), 0, 0, S, S);
+    x.globalAlpha = kind === 1 ? 0.7 : kind === 3 ? 0.95 : 0.45;
+    x.drawImage(glow(kind === 1 || kind === 3 ? '#ffd23f' : kind === 2 ? '#ff7a4d' : '#6dff5a', 64), 0, 0, S, S);
     x.globalAlpha = 1;
-    if (kind === 1) {
+    if (kind === 3) {
+      // célula dourada: núcleo brilhante com membrana e organelas
+      x.translate(m, m);
+      const g = x.createRadialGradient(-5, -6, 2, 0, 0, 19);
+      g.addColorStop(0, '#fffbe0');
+      g.addColorStop(0.35, '#ffe066');
+      g.addColorStop(0.8, '#f0a500');
+      g.addColorStop(1, '#a86400');
+      x.fillStyle = g;
+      x.beginPath();
+      x.arc(0, 0, 18, 0, Math.PI * 2);
+      x.fill();
+      x.strokeStyle = '#fff6c2';
+      x.lineWidth = 2.5;
+      x.stroke();
+      x.fillStyle = 'rgba(255,255,255,0.75)';
+      for (const [ox, oy, r] of [[-6, -5, 4], [6, 3, 3], [-2, 8, 2.5], [8, -7, 2]] as const) {
+        x.beginPath();
+        x.arc(ox, oy, r, 0, Math.PI * 2);
+        x.fill();
+      }
+    } else if (kind === 1) {
       // cristal dourado facetado
       x.translate(m, m);
       const pts: [number, number][] = [

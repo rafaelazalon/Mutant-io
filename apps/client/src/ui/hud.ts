@@ -55,6 +55,9 @@ export class Hud {
   private phase: HTMLElement;
   private board: HTMLElement;
   private net: HTMLElement;
+  private killfeed: HTMLElement;
+  /** abates seguidos do jogador local (zera ao morrer) */
+  streak = 0;
   private powers: HTMLElement;
   private pbtns: PowerBtn[] = [];
   private evoPanel: HTMLElement;
@@ -91,6 +94,7 @@ export class Hud {
     this.phase = $(r, '.phase');
     this.board = $(r, '.board');
     this.net = $(r, '.net');
+    this.killfeed = $(r, '.killfeed');
     this.powers = $(r, '.powers');
     this.evoPanel = $(r, '.evo-panel');
     this.evoPill = $(r, '.evo-pill');
@@ -179,6 +183,18 @@ export class Hud {
     el.textContent = t;
   }
 
+  /** Registro de abates (canto superior direito). */
+  feed(killer: string | undefined, victim: string, back: boolean, cls: '' | 'mine' | 'died') {
+    const d = document.createElement('div');
+    d.className = `kf ${cls}`;
+    d.innerHTML = killer
+      ? `<span class="a">${esc(killer)}</span><span class="ic">🦷</span><span class="b">${esc(victim)}</span>${back ? '<span class="back">pelas costas</span>' : ''}`
+      : `<span class="b">${esc(victim)}</span><span class="ic">☠️</span><span class="a">ácido</span>`;
+    this.killfeed.prepend(d);
+    while (this.killfeed.children.length > 4) this.killfeed.lastChild?.remove();
+    setTimeout(() => d.remove(), 5200);
+  }
+
   toast(text: string, kind: string) {
     const d = document.createElement('div');
     d.className = `toast ${kind}`;
@@ -250,7 +266,8 @@ export class Hud {
     const mine = !inTop && g.rank ? `<div class="sep"></div><div class="r me"><span class="p">${g.rank}</span><span class="n">Você</span><span class="s">${me.sc}</span></div>` : '';
     this.set('board', this.board, rows + mine);
     this.board.classList.toggle('collapsed', this.boardCollapsed);
-    this.text('net', this.net, this.showStats ? `${g.conn.kind === 'online' ? `${g.ping} ms` : 'offline'} · ${me.k} abates` : `${me.k} abates · ${me.d} mortes`);
+    const chip = this.streak >= 2 ? `<span class="streak-chip">🔥 ${this.streak}</span>` : '';
+    this.set('net', this.net, esc(this.showStats ? `${g.conn.kind === 'online' ? `${g.ping} ms` : 'offline'} · ${me.k} abates` : `${me.k} abates · ${me.d} mortes`) + chip);
 
     this.updatePowers(g);
 

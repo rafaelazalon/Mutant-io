@@ -92,6 +92,8 @@ export class ClientGame {
   rank = 0;
   total = 0;
   minimap: [number, number][] = [];
+  /** marcadores do mundo (chuva de biomassa anunciada, célula dourada) */
+  worldMarks: [number, number, number, number][] = [];
   offer: OfferView | null = null;
   results: { rows: ResultRow[]; you: number; nextIn: number; receivedAt: number; matchId: number } | null = null;
   ping = 0;
@@ -204,6 +206,7 @@ export class ClientGame {
       this.total = s.total ?? 0;
       this.minimap = s.mm ?? [];
     }
+    this.worldMarks = s.wm ?? [];
 
     // jogadores remotos
     const seen = new Set<number>();

@@ -97,6 +97,7 @@ describe('as 12 mutações', () => {
     const w = emptyWorld();
     const spiky = addPlayer(w, 1000, 1000, ['espinhos_externos']);
     const biter = addPlayer(w, 1040, 1000, []);
+    biter.faceX = -1; // virado para o espinhoso
     spiky.biteCd = 99; // só o outro morde
     const hp0 = biter.hp;
     steps(w, 1);
@@ -157,7 +158,9 @@ describe('as 12 mutações', () => {
     p.cooldowns = {};
     w.useAbility(p);
     const d = [...w.decoys.values()][0]!;
-    addPlayer(w, d.x + 30, d.y, []);
+    const biter = addPlayer(w, d.x + 30, d.y, []);
+    biter.faceX = -1;
+    biter.faceY = 0;
     steps(w, 2);
     assert.equal(w.decoys.size, 0, 'mordida estoura a isca');
   });

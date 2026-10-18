@@ -105,7 +105,7 @@ export const FLAG = {
 
 /** [id, x, y, raio, vida%, nível, flags, faceX*100, faceY*100] */
 export type PlayerTuple = [number, number, number, number, number, number, number, number, number];
-/** [id, x, y, valor, tipo(0 normal|1 rica|2 drop)] */
+/** [id, x, y, valor, tipo(0 normal|1 rica|2 drop|3 célula dourada)] */
 export type PelletTuple = [number, number, number, number, number];
 /** [id, donoId, x, y, faceX*100, faceY*100] */
 export type DecoyTuple = [number, number, number, number, number, number];
@@ -124,7 +124,7 @@ export interface PlayerMeta {
 }
 
 export type GameEvent =
-  | { k: 'bite'; a: number; b: number; d: number; x: number; y: number }
+  | { k: 'bite'; a: number; b: number; d: number; x: number; y: number; back?: 1 }
   | { k: 'blocked'; b: number }
   | { k: 'thorns'; a: number; b: number; d: number }
   | { k: 'pulse'; a: number; x: number; y: number; r: number }
@@ -136,7 +136,10 @@ export type GameEvent =
   | { k: 'pop'; x: number; y: number }
   | { k: 'evo'; a: number; m: MutationId }
   | { k: 'hybrid'; a: number; h: HybridId }
-  | { k: 'kill'; a: number; b: number; x: number; y: number }
+  | { k: 'kill'; a: number; b: number; x: number; y: number; back?: 1; an?: string; bn?: string }
+  | { k: 'streak'; a: number; n: number }
+  | { k: 'rain'; x: number; y: number; r: number }
+  | { k: 'superSpawn'; x: number; y: number }
   | { k: 'acid'; b: number; d: number }
   | { k: 'eat'; a: number; x: number; y: number };
 
@@ -198,6 +201,8 @@ export interface Snapshot {
   total?: number;
   /** pontos do minimapa: jogadores em zonas de energia (visíveis para todos) */
   mm?: [number, number][];
+  /** marcadores do mundo: [tipo 0=chuva de biomassa (aviso) | 1=célula dourada, x, y, segundos] */
+  wm?: [number, number, number, number][];
 }
 
 /** [id, nome, pontos, bot(0|1)] */

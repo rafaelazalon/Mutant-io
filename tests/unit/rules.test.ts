@@ -9,12 +9,49 @@ describe('combate', () => {
     const a = addPlayer(w, 1000, 1000, []);
     const b = addPlayer(w, 1040, 1000, []);
     b.biteCd = 99;
+    b.faceX = -1; // de frente para o atacante (sem bônus pelas costas)
     steps(w, 1);
     const dealt = b.stats.maxHp - b.hp;
     assert.ok(Math.abs(dealt - PLAYER_BASE.biteDamage) < 1e-6);
     b.x = a.x + 40;
     steps(w, 1);
     assert.ok(Math.abs(b.stats.maxHp - b.hp - dealt) < 1e-6, 'não morde de novo antes da recarga');
+  });
+
+  it('mordida só acerta à frente; pelas costas causa mais dano', () => {
+    const w = emptyWorld();
+    const a = addPlayer(w, 1000, 1000, []);
+    const b = addPlayer(w, 1040, 1000, []);
+    a.faceX = -1; // atacante virado para longe: não morde
+    a.faceY = 0;
+    b.biteCd = 99;
+    steps(w, 1);
+    assert.equal(b.hp, b.stats.maxHp, 'sem mordida por trás do próprio atacante');
+    a.faceX = 1;
+    b.faceX = 1; // alvo de costas
+    b.x = a.x + 40;
+    b.y = a.y;
+    steps(w, 1);
+    const dealt = b.stats.maxHp - b.hp;
+    assert.ok(Math.abs(dealt - PLAYER_BASE.biteDamage * GAME_CONFIG.combat.backstabMul) < 1e-6);
+    assert.ok(w.events.some((e) => e.ev.k === 'bite' && e.ev.back === 1), 'evento marca pelas costas');
+  });
+
+  it('sequência de abates dá bônus crescente e zera ao morrer', () => {
+    const w = emptyWorld();
+    const a = addPlayer(w, 1000, 1000, []);
+    const v1 = addPlayer(w, 1400, 1000, []);
+    const v2 = addPlayer(w, 1800, 1000, []);
+    const s0 = a.score;
+    w.kill(v1, a.id);
+    const first = a.score - s0;
+    w.kill(v2, a.id);
+    const second = a.score - s0 - first;
+    assert.equal(a.streak, 2);
+    assert.ok(second > first, 'segundo abate seguido vale mais');
+    w.kill(a, -1);
+    assert.equal(a.streak, 0);
+    assert.equal(a.bestStreak, 2);
   });
 
   it('proteção de nascimento: não morde e não é mordido', () => {
@@ -143,5 +180,35 @@ describe('movimento', () => {
     p.inputQueue.push({ seq: 1, x: 1, y: 0 });
     secs(w, 2);
     assert.ok(Math.hypot(p.vx, p.vy) < 1);
+  });
+});
+
+describe('eventos do mapa', () => {
+  it('chuva de biomassa: avisa, marca no mapa e depois derruba células ricas', () => {
+    const w = emptyWorld();
+    (w as unknown as { nextRainAt: number }).nextRainAt = 0;
+    steps(w, 1);
+    assert.ok(w.rain, 'chuva anunciada');
+    const mk = w.worldMarkers();
+    assert.equal(mk[0]?.[0], 0);
+    assert.equal(w.pellets.size, 0, 'nada cai durante o aviso');
+    secs(w, GAME_CONFIG.events.rainWarnSec + 0.2);
+    assert.equal(w.rain, null);
+    assert.ok(w.pellets.size >= GAME_CONFIG.events.rainPellets * 0.7);
+  });
+
+  it('célula dourada: uma por vez, vale muito e volta depois de comida', () => {
+    const w = emptyWorld();
+    (w as unknown as { nextSuperAt: number }).nextSuperAt = 0;
+    steps(w, 1);
+    const cell = w.pellets.get(w.superCellId)!;
+    assert.equal(cell.kind, 3);
+    assert.equal(cell.value, GAME_CONFIG.events.superValue);
+    assert.ok(w.worldMarkers().some((m) => m[0] === 1));
+    const p = addPlayer(w, cell.x, cell.y, []);
+    steps(w, 2);
+    assert.ok(p.biomass >= GAME_CONFIG.events.superValue);
+    steps(w, 1);
+    assert.equal(w.superCellId, -1);
   });
 });

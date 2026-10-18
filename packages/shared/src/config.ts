@@ -68,6 +68,31 @@ export const GAME_CONFIG = {
     perBiomass: 1,
     killBase: 25,
     killPerVictimLevel: 3,
+    /** bônus por abate a cada abate seguido sem morrer (limitado) */
+    streakBonus: 6,
+    streakBonusMax: 5,
+  },
+
+  combat: {
+    /** a mordida só acerta quem está à frente (cos do meio-ângulo do cone) */
+    biteFrontCos: 0.17,
+    /** mordida pelas costas: alvo de costas para o atacante */
+    backstabCos: 0.45,
+    backstabMul: 1.35,
+  },
+
+  events: {
+    /** Chuva de biomassa: aviso, depois várias células ricas caem numa área */
+    rainEveryMinSec: 70,
+    rainEveryMaxSec: 100,
+    rainFirstSec: 40,
+    rainWarnSec: 6,
+    rainPellets: 22,
+    rainRadius: 210,
+    rainValue: 2,
+    /** Célula dourada: rara, vale muito, aparece no minimapa de todos */
+    superEverySec: 45,
+    superValue: 15,
   },
 
   net: {

@@ -17,7 +17,12 @@ export type Sfx =
   | 'click'
   | 'cloak'
   | 'pop'
-  | 'zap';
+  | 'zap'
+  | 'crit'
+  | 'streak'
+  | 'alarm'
+  | 'meteor'
+  | 'golden';
 
 export class Audio {
   private ctx: AudioContext | null = null;
@@ -149,6 +154,24 @@ export class Audio {
         break;
       case 'click':
         this.tone(660, 0.05, 'triangle', 0.1);
+        break;
+      case 'crit':
+        this.noise(0.12, 0.6, 600, 1.5);
+        this.tone(260, 0.16, 'square', 0.14, 70);
+        this.tone(1400, 0.08, 'triangle', 0.1, undefined, 0.02);
+        break;
+      case 'streak':
+        [660, 880, 1175].forEach((f, i) => this.tone(f, 0.14, 'square', 0.09, undefined, i * 0.06));
+        break;
+      case 'alarm':
+        [0, 0.22, 0.44].forEach((d) => this.tone(740, 0.14, 'triangle', 0.12, 980, d));
+        break;
+      case 'meteor':
+        this.noise(0.5, 0.5, 220, 0.6);
+        this.tone(140, 0.5, 'sine', 0.2, 45);
+        break;
+      case 'golden':
+        [784, 988, 1319, 1568].forEach((f, i) => this.tone(f, 0.25, 'sine', 0.12, undefined, i * 0.08));
         break;
     }
   }

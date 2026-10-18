@@ -76,6 +76,11 @@ export class Renderer {
   private fastFor = 0;
   onSelfEvent: (e: GameEvent) => void = () => {};
   onZoneShock: () => void = () => {};
+  onSelfHit: () => void = () => {};
+  onKill: (e: Extract<GameEvent, { k: 'kill' }>) => void = () => {};
+  /** direções de onde veio dano recente (indicador na borda da tela) */
+  private hitFrom: { a: number; t: number; back: boolean }[] = [];
+  private dashGhost = new Map<number, number>();
 
   constructor(
     readonly canvas: HTMLCanvasElement,
@@ -556,8 +561,14 @@ export class Renderer {
           const dy = pa ? e.y - pa.y : 0;
           this.fx.sparks(e.x, e.y, dx, dy, '#fff2c0', 6);
           this.fx.goo(e.x, e.y, `hsl(${this.hueOf(g, e.b)} 85% 60%)`, 6);
-          this.fx.text(e.x, e.y - 24, `-${e.d}`, e.b === me ? '#ff5f5f' : '#ffffff', e.b === me ? 24 : 18);
+          if (e.back) {
+            this.fx.banner(e.x, e.y - 34, `-${e.d} PELAS COSTAS!`, '#ff9f1c', e.b === me || e.a === me ? 24 : 18);
+            this.fx.shards(e.x, e.y, '#ffb347', 6, 240);
+            if (e.a === me || e.b === me) audio.play('crit');
+          } else this.fx.text(e.x, e.y - 24, `-${e.d}`, e.b === me ? '#ff5f5f' : '#ffffff', e.b === me ? 24 : 18);
           if (e.b === me) {
+            if (pa && g.me) this.hitFrom.push({ a: Math.atan2(pa.y - g.myRenderPos().y, pa.x - g.myRenderPos().x), t: 1, back: !!e.back });
+            this.onSelfHit();
             audio.play('hurt');
             this.shake = Math.min(14, this.shake + 7);
             this.flash = { a: 0.3, color: '255,40,70' };
@@ -569,7 +580,10 @@ export class Renderer {
         }
         case 'blocked': {
           const p = this.posOf(g, e.b);
-          if (p) this.fx.ring(p.x, p.y, 20, 70, '#ffe066', 0.25);
+          if (p) {
+            this.fx.hex(p.x, p.y, 30, 60, '#ffe066', 0.3);
+            this.fx.shards(p.x, p.y, '#fff3a8', 5, 200);
+          }
           if (e.b === me) audio.play('blocked');
           break;
         }
@@ -583,43 +597,73 @@ export class Renderer {
         }
         case 'pulse':
           this.fx.ring(e.x, e.y, 10, e.r, '#5ce1ff', 0.5);
+          this.fx.ring(e.x, e.y, 6, e.r * 0.7, '#ffffff', 0.3);
           this.fx.burst(e.x, e.y, '#5ce1ff', 14, e.r * 1.6, 3, 0.45);
-          for (let i = 0; i < 4; i++) {
-            const a = Math.random() * Math.PI * 2;
-            this.fx.bolt(e.x, e.y, e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, '#9af4ff', 0.2);
+          for (let i = 0; i < (this.hq ? 7 : 4); i++) {
+            const a = (i / (this.hq ? 7 : 4)) * Math.PI * 2 + Math.random() * 0.6;
+            this.fx.bolt(e.x, e.y, e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, i % 2 ? '#9af4ff' : '#e6fdff', 0.24);
           }
           audio.play('pulse');
           if (e.a === me) this.shake = Math.min(10, this.shake + 5);
           break;
         case 'dash': {
           const p = this.posOf(g, e.a);
-          if (p) this.fx.ring(p.x, p.y, 10, 60, '#ffb547', 0.25);
+          if (p) {
+            const v = this.lastViews.get(e.a === me ? -1 : e.a);
+            const fx = v?.fx ?? 1;
+            const fy = v?.fy ?? 0;
+            const r = v?.r ?? 24;
+            this.fx.ring(p.x, p.y, 10, 60, '#ffb547', 0.25);
+            this.fx.speedLines(p.x, p.y, fx, fy, r, '#ffd08a', 9);
+            this.fx.burst(p.x - fx * r, p.y - fy * r, '#ff9f1c', 8, 140, 3, 0.35);
+            this.dashGhost.set(e.a, this.time);
+          }
           if (e.a === me) audio.play('dash');
           break;
         }
         case 'blink':
           this.fx.rift(e.fx, e.fy, 38);
           this.fx.rift(e.tx, e.ty, 38);
+          this.fx.portal(e.fx, e.fy, 44, '#b07cff', 0.6);
+          this.fx.portal(e.tx, e.ty, 44, '#e2d0ff', 0.6);
+          this.fx.beam(e.fx, e.fy, e.tx, e.ty, '#c9a8ff', 0.3);
           this.fx.burst(e.tx, e.ty, '#d4b8ff', 14, 160, 4, 0.5);
+          this.fx.burst(e.fx, e.fy, '#7a4dff', 8, 90, 3, 0.4);
           audio.play('blink');
           break;
         case 'shield': {
           const p = this.posOf(g, e.a);
-          if (p) this.fx.ring(p.x, p.y, 70, 30, '#ffe066', 0.3);
+          if (p) {
+            this.fx.hex(p.x, p.y, 80, 34, '#ffe066', 0.4);
+            this.fx.hex(p.x, p.y, 20, 70, '#fff6c2', 0.35);
+            this.fx.burst(p.x, p.y, '#ffe066', 10, 120, 3, 0.4);
+          }
           if (e.a === me) audio.play('shield');
           break;
         }
         case 'cloak': {
           const p = this.posOf(g, e.a);
-          if (p) this.fx.burst(p.x, p.y, '#9be564', 10, 70, 3, 0.6);
+          if (p) {
+            this.fx.ripple(p.x, p.y, 20, 90, '#c8ffb0', 0.6);
+            this.fx.ripple(p.x, p.y, 10, 60, '#9be564', 0.45);
+            this.fx.burst(p.x, p.y, '#9be564', 10, 70, 3, 0.6);
+          }
           if (e.a === me) audio.play('cloak');
           break;
         }
-        case 'decoy':
+        case 'decoy': {
+          const d = this.posOf(g, e.a);
+          if (d) {
+            this.fx.ring(d.x, d.y, 8, 50, '#ffa3a3', 0.3);
+            this.fx.goo(d.x, d.y, `hsl(${this.hueOf(g, e.a)} 80% 62%)`, 8);
+          }
           if (e.a === me) audio.play('pop');
           break;
+        }
         case 'pop':
           this.fx.burst(e.x, e.y, '#ffa3a3', 12, 150, 3, 0.45);
+          this.fx.ripple(e.x, e.y, 10, 70, '#ffd0d0', 0.4);
+          this.fx.goo(e.x, e.y, '#ff8f8f', 8);
           audio.play('pop');
           break;
         case 'evo': {
@@ -665,11 +709,43 @@ export class Renderer {
             this.flash = { a: 0.5, color: '255,30,60' };
           } else if (e.a === me) {
             audio.play('kill');
-            this.fx.text(e.x, e.y - 40, 'ABATE!', '#ffe066', 30);
+            this.fx.banner(e.x, e.y - 40, e.back ? 'ABATE PELAS COSTAS!' : 'ABATE!', '#ffe066', 30);
           }
           this.onSelfEvent(e);
+          this.onKill(e);
           break;
         }
+        case 'streak': {
+          const p = this.posOf(g, e.a);
+          const label = e.n >= 8 ? 'LENDÁRIO' : e.n >= 5 ? 'IMPARÁVEL' : e.n >= 3 ? 'EM FÚRIA' : 'DUPLO';
+          if (p) {
+            this.fx.banner(p.x, p.y - 80, `${label} ×${e.n}`, e.n >= 5 ? '#ff5fd2' : '#ff9f1c', e.a === me ? 34 : 24);
+            this.fx.ring(p.x, p.y, 20, 120, '#ff9f1c', 0.45);
+          }
+          if (e.a === me) {
+            audio.play('streak');
+            this.onSelfEvent(e);
+          }
+          break;
+        }
+        case 'rain': {
+          for (let i = 0; i < (this.hq ? 22 : 10); i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.sqrt(Math.random()) * e.r;
+            this.fx.meteor(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, Math.random() * 0.6, i % 3 ? '#ffd23f' : '#9dff7a');
+          }
+          this.fx.ring(e.x, e.y, 20, e.r * 1.2, '#ffd23f', 0.9);
+          if (g.me && Math.hypot(e.x - g.myRenderPos().x, e.y - g.myRenderPos().y) < 1400) {
+            audio.play('meteor');
+            this.shake = Math.min(10, this.shake + 4);
+          }
+          break;
+        }
+        case 'superSpawn':
+          this.fx.column(e.x, e.y, 60, '#ffd23f');
+          this.fx.ring(e.x, e.y, 10, 120, '#ffe066', 0.6);
+          audio.play('golden');
+          break;
         case 'acid':
           break;
       }
@@ -828,6 +904,8 @@ export class Renderer {
     for (const [x, y, r] of g.hazards) if (inView(x, y, r * 1.7)) this.drawAcid(ctx, x, y, r, dt);
     for (const [id, x, y, r, life] of g.zones) if (inView(x, y, r * 1.5)) this.drawZone(ctx, id, x, y, r, life, s, dt);
 
+    for (const [kind, x, y, secs] of g.worldMarks) if (kind === 0 && inView(x, y, 260)) this.drawRainTarget(ctx, x, y, secs);
+
     // biomassa (sprites com halo embutido)
     const now = performance.now();
     const k12 = Math.min(1, dt * 12);
@@ -840,6 +918,10 @@ export class Renderer {
       const age = now - p.born < 280 ? (now - p.born) / 280 : 1;
       const pop = age < 1 ? age * (1 + Math.sin(age * Math.PI) * 0.4) : 1;
       const bob = Math.sin(this.time * 3 + p.id) * 1.6;
+      if (p.kind === 3) {
+        this.drawGolden(ctx, p.x, p.y + bob, pop, dt);
+        continue;
+      }
       const base = p.kind === 1 ? 11 : p.kind === 2 ? 7 + Math.min(6, p.v) : 7;
       const r = base * pop;
       ctx.drawImage(pelletSprite(p.kind), p.x - r * 2.2, p.y + bob - r * 2.2, r * 4.4, r * 4.4);
@@ -865,6 +947,7 @@ export class Renderer {
     const emitTrail = this.trailT > (this.hq ? 0.04 : 0.1);
     if (emitTrail) this.trailT = 0;
 
+    const leaderId = g.phase === 'playing' && (g.leaderboard[0]?.[2] ?? 0) > 0 ? g.leaderboard[0]![0] : -99;
     const seen = new Set<number>();
     for (const p of list) {
       seen.add(p.id);
@@ -891,8 +974,13 @@ export class Renderer {
         } else fx = 1;
         this.lastViews.set(-1, { ...p, fx, fy });
       }
+      if (p.self) this.drawBiteCone(ctx, p.x, p.y, p.r, fx, fy);
       const cloaked = (p.flags & FLAG.cloak) !== 0;
-      if (emitTrail && !cloaked && p.flags & FLAG.dashing) this.fx.trail(p.x - fx * p.r, p.y - fy * p.r, '#ffb547', p.r * 0.7);
+      if (emitTrail && !cloaked && p.flags & FLAG.dashing) {
+        this.fx.trail(p.x - fx * p.r, p.y - fy * p.r, '#ffb547', p.r * 0.7);
+        this.fx.ghost(p.x, p.y, p.r, Math.atan2(fy, fx), `hsl(${meta?.hue ?? 30} 90% 62%)`);
+        if (this.hq) this.fx.speedLines(p.x, p.y, fx, fy, p.r, '#ffe2b8', 2);
+      }
       const tr = meta?.look?.rastro;
       if (tr && tr !== 'rastro.nenhum' && !cloaked && Math.hypot(p.vx, p.vy) > 60) this.cosmeticTrail(p.id, tr, p.x - fx * p.r * 0.95, p.y - fy * p.r * 0.95, p.r, dt);
       let alpha = 1;
@@ -901,8 +989,11 @@ export class Renderer {
       if (p.flags & FLAG.disconnected) alpha *= 0.5;
       const bt = this.time - (this.biteAt.get(p.id) ?? -9);
       const bite = bt < 0.25 ? Math.sin((bt / 0.25) * Math.PI) : 0;
-      drawCreature(ctx, { x: p.x, y: p.y, r: p.r, hue: meta?.hue ?? 200, fx, fy, vx: p.vx, vy: p.vy, muts: sets.m, hyb: sets.h, flags: p.flags, alpha, seed: p.id, level: p.lv, bite, look: meta?.look }, this.time, this.hq, res);
-      if (!(cloaked && !p.self)) this.label(ctx, p.x, p.y, p.r, meta?.name ?? '', p.lv, s, p.self ? -1 : p.hp, p.self, meta?.bot ?? false, (p.flags & FLAG.disconnected) !== 0);
+      drawCreature(ctx, { x: p.x, y: p.y, r: p.r, hue: meta?.hue ?? 200, fx, fy, vx: p.vx, vy: p.vy, muts: sets.m, hyb: sets.h, flags: p.flags, alpha, seed: p.id, level: p.lv, bite, look: meta?.look, hp: p.hp }, this.time, this.hq, res);
+      if (!(cloaked && !p.self)) {
+        this.label(ctx, p.x, p.y, p.r, meta?.name ?? '', p.lv, s, p.self ? -1 : p.hp, p.self, meta?.bot ?? false, (p.flags & FLAG.disconnected) !== 0);
+        if (p.id === leaderId) this.drawCrown(ctx, p.x, p.y - p.r * 1.7 - 30 / s, s);
+      }
     }
     for (const id of this.wasInZone.keys()) if (!seen.has(id)) this.wasInZone.delete(id);
 
@@ -917,6 +1008,8 @@ export class Renderer {
       ctx.drawImage(this.redVignette, 0, 0, this.w, this.h);
       ctx.globalAlpha = 1;
     }
+    this.drawHitIndicators(ctx, dt);
+    if (me?.alive) this.drawPointers(ctx, g, mp);
     if (this.flash.a > 0.01) {
       ctx.fillStyle = `rgba(${this.flash.color},${this.flash.a})`;
       ctx.fillRect(0, 0, this.w, this.h);
@@ -1161,6 +1254,229 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  /** Cone sutil à frente do jogador: mostra onde a mordida alcança. */
+  private drawBiteCone(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fx: number, fy: number) {
+    const a = Math.atan2(fy, fx);
+    const half = Math.acos(0.17);
+    const R = r * 2 + 34;
+    const g = ctx.createRadialGradient(x, y, r * 0.9, x, y, R);
+    g.addColorStop(0, 'rgba(255,240,200,0.13)');
+    g.addColorStop(1, 'rgba(255,240,200,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, R, a - half, a + half);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /** Célula dourada: gira, pulsa e solta brilhos. */
+  private goldT = 0;
+  private drawGolden(ctx: CanvasRenderingContext2D, x: number, y: number, pop: number, dt: number) {
+    const pulse = 1 + Math.sin(this.time * 5) * 0.08;
+    const r = 17 * pop * pulse;
+    ctx.globalAlpha = 0.5 + 0.25 * Math.sin(this.time * 3);
+    const gr = r * 5;
+    ctx.drawImage(glow('#ffd23f'), x - gr, y - gr, gr * 2, gr * 2);
+    ctx.globalAlpha = 1;
+    // raios girando
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(this.time * 0.8);
+    ctx.fillStyle = 'rgba(255,230,120,0.22)';
+    for (let i = 0; i < 8; i++) {
+      ctx.rotate(Math.PI / 4);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(r * 3.2, -r * 0.35);
+      ctx.lineTo(r * 3.2, r * 0.35);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.drawImage(pelletSprite(3), x - r * 2.2, y - r * 2.2, r * 4.4, r * 4.4);
+    this.goldT += dt;
+    if (this.goldT > (this.hq ? 0.12 : 0.35)) {
+      this.goldT = 0;
+      this.fx.rise(x + (Math.random() - 0.5) * r * 2, y + (Math.random() - 0.5) * r, '#ffe066', 3, 1);
+    }
+  }
+
+  /** Alvo da chuva de biomassa: anel pulsante com contagem regressiva. */
+  private drawRainTarget(ctx: CanvasRenderingContext2D, x: number, y: number, secs: number) {
+    const R = 210;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 6);
+    ctx.fillStyle = `rgba(255,210,63,${0.06 + pulse * 0.06})`;
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,210,63,${0.5 + pulse * 0.4})`;
+    ctx.lineWidth = 5;
+    ctx.setLineDash([22, 16]);
+    ctx.lineDashOffset = -this.time * 40;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // anel que se fecha até a queda
+    const k = Math.max(0, Math.min(1, secs / 6));
+    ctx.strokeStyle = 'rgba(255,240,170,0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, R * (0.15 + 0.85 * k), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.font = `64px 'Lilita One', 'Fredoka', system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = 'rgba(20,12,0,0.75)';
+    const t = `☄ ${Math.ceil(secs)}`;
+    ctx.strokeText(t, x, y);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillText(t, x, y);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  /** Coroa sobre o líder do placar. */
+  private drawCrown(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+    const w = 15 / s;
+    const h = 11 / s;
+    const bob = Math.sin(this.time * 3) * 2 / s;
+    ctx.save();
+    ctx.translate(x, y + bob);
+    ctx.globalAlpha = 0.6;
+    const gr = w * 2.2;
+    ctx.drawImage(glow('#ffd23f'), -gr, -gr, gr * 2, gr * 2);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(-w, h * 0.6);
+    ctx.lineTo(-w, -h * 0.4);
+    ctx.lineTo(-w * 0.5, h * 0.05);
+    ctx.lineTo(0, -h * 0.75);
+    ctx.lineTo(w * 0.5, h * 0.05);
+    ctx.lineTo(w, -h * 0.4);
+    ctx.lineTo(w, h * 0.6);
+    ctx.closePath();
+    const gd = ctx.createLinearGradient(0, -h, 0, h);
+    gd.addColorStop(0, '#fff3a8');
+    gd.addColorStop(1, '#e09a00');
+    ctx.fillStyle = gd;
+    ctx.fill();
+    ctx.lineWidth = 2 / s;
+    ctx.strokeStyle = '#7a4a00';
+    ctx.stroke();
+    ctx.fillStyle = '#ff4d8d';
+    ctx.beginPath();
+    ctx.arc(0, h * 0.25, 2.4 / s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Marcas vermelhas na borda da tela apontando de onde veio o dano. */
+  private drawHitIndicators(ctx: CanvasRenderingContext2D, dt: number) {
+    if (!this.hitFrom.length) return;
+    const cx = this.w / 2;
+    const cy = this.h / 2;
+    const R = Math.min(this.w, this.h) * 0.36;
+    for (const h of this.hitFrom) {
+      h.t -= dt * 1.1;
+      if (h.t <= 0) continue;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(h.a);
+      ctx.globalAlpha = Math.min(1, h.t * 1.6);
+      const g = ctx.createRadialGradient(R, 0, 4, R, 0, 70);
+      g.addColorStop(0, h.back ? 'rgba(255,160,40,0.9)' : 'rgba(255,50,70,0.85)');
+      g.addColorStop(1, 'rgba(255,40,60,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, R + 40, -0.42, 0.42);
+      ctx.arc(0, 0, R - 26, 0.42, -0.42, true);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = h.back ? '#ffb347' : '#ff4d6d';
+      ctx.beginPath();
+      ctx.moveTo(R + 34, 0);
+      ctx.lineTo(R + 12, -13);
+      ctx.lineTo(R + 12, 13);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    this.hitFrom = this.hitFrom.filter((h) => h.t > 0);
+  }
+
+  /** Setas na borda da tela para zonas de energia, chuva de biomassa e célula dourada fora de vista. */
+  private drawPointers(ctx: CanvasRenderingContext2D, g: ClientGame, mp: { x: number; y: number }) {
+    const s = this.cam.scale;
+    const hw = this.w / 2;
+    const hh = this.h / 2;
+    const items: { x: number; y: number; color: string; icon: string; r: number }[] = [];
+    for (const [, x, y, r] of g.zones) items.push({ x, y, color: '#5ce1ff', icon: '⚡', r });
+    for (const [kind, x, y] of g.worldMarks) items.push({ x, y, color: '#ffd23f', icon: kind === 0 ? '☄' : '✨', r: kind === 0 ? 200 : 20 });
+    // fica longe do HUD: placar/vida em cima, poderes embaixo
+    const hud = viewport.size.hud || 1;
+    const padX = 40;
+    const padTop = Math.min(hh * 0.6, (this.h > this.w ? 300 : 130) * hud);
+    const padBot = Math.min(hh * 0.6, (this.h > this.w ? 260 : 120) * hud);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const placed: [number, number][] = [];
+    for (const it of items) {
+      const sx = (it.x - this.cam.x) * s;
+      const sy = (it.y - this.cam.y) * s;
+      const rr = it.r * s;
+      if (Math.abs(sx) < hw + rr * 0.3 && Math.abs(sy) < hh + rr * 0.3) continue; // já aparece na tela
+      const a = Math.atan2(sy, sx);
+      const ex = Math.cos(a);
+      const ey = Math.sin(a);
+      const lim = ey < 0 ? hh - padTop : hh - padBot;
+      const t = Math.min((hw - padX) / Math.max(1e-6, Math.abs(ex)), lim / Math.max(1e-6, Math.abs(ey)));
+      let px = hw + ex * t;
+      let py = hh + ey * t;
+      // não empilha setas: desliza ao longo da borda
+      for (let tries = 0; tries < 4 && placed.some(([qx, qy]) => Math.hypot(qx - px, qy - py) < 56); tries++) {
+        if (Math.abs(Math.abs(px - hw) - (hw - padX)) < 1) py += py > hh ? -58 : 58;
+        else px += px > hw ? -58 : 58;
+      }
+      placed.push([px, py]);
+      const dist = Math.hypot(it.x - mp.x, it.y - mp.y);
+      const pulse = 0.75 + 0.25 * Math.sin(this.time * 5);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.globalAlpha = 0.9 * pulse;
+      ctx.fillStyle = 'rgba(5,10,20,0.6)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 17, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = it.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.rotate(a);
+      ctx.fillStyle = it.color;
+      ctx.beginPath();
+      ctx.moveTo(27, 0);
+      ctx.lineTo(18, -7);
+      ctx.lineTo(18, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.rotate(-a);
+      ctx.globalAlpha = 1;
+      ctx.font = `15px system-ui, sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(it.icon, 0, 1);
+      ctx.font = `600 11px 'Fredoka', system-ui, sans-serif`;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      const dtxt = `${Math.round(dist / 100) * 10} m`;
+      const ty = ey > 0.5 ? -29 : 31;
+      ctx.strokeText(dtxt, 0, ty);
+      ctx.fillStyle = it.color;
+      ctx.fillText(dtxt, 0, ty);
+      ctx.restore();
+    }
+    ctx.textBaseline = 'alphabetic';
+  }
+
   private label(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, name: string, lv: number, s: number, hp: number, self: boolean, bot: boolean, dc = false) {
     const txt = `${name}${bot ? ' · BOT' : ''}${dc ? ' (reconectando)' : ''}`;
     const l = this.labelSprite(txt, lv, self ? '#ffe066' : bot ? '#c9d6f2' : '#ffffff', self ? '#ffe066' : '#7dff6a');
@@ -1217,6 +1533,21 @@ export class Renderer {
       m.beginPath();
       m.arc(x * k, y * k, 2.5, 0, Math.PI * 2);
       m.fill();
+    }
+    const blink = Math.sin(this.time * 8) > 0;
+    for (const [kind, x, y] of g.worldMarks) {
+      if (kind === 0) {
+        m.strokeStyle = blink ? '#ffd23f' : 'rgba(255,210,63,0.4)';
+        m.lineWidth = 2;
+        m.beginPath();
+        m.arc(x * k, y * k, 7, 0, Math.PI * 2);
+        m.stroke();
+      } else {
+        m.fillStyle = '#ffd23f';
+        m.beginPath();
+        m.arc(x * k, y * k, blink ? 4.5 : 3.5, 0, Math.PI * 2);
+        m.fill();
+      }
     }
     m.fillStyle = '#ffe066';
     m.strokeStyle = '#000';
