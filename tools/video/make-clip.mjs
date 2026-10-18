@@ -174,7 +174,7 @@ execFileSync('ffmpeg', [
   '-f', 'concat', '-safe', '0', '-i', join(TMP, 'list.txt'),
   '-i', join(TMP, 'music.wav'),
   '-vf', `scale=1080:1920:flags=lanczos,fps=${FPS},format=yuv420p`,
-  '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-profile:v', 'high',
+  '-c:v', 'libx264', '-preset', 'medium', '-crf', '24', '-profile:v', 'high',
   '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart',
   OUT,
 ]);
