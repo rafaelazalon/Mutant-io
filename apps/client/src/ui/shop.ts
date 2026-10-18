@@ -258,10 +258,29 @@ export class Shop {
     go.addEventListener('click', async () => {
       go.disabled = true;
       go.textContent = 'Abrindo…';
+      // dentro de um portal (itch.io, CrazyGames…) o jogo roda num iframe: o pagamento abre em outra aba
+      // (aberta já no toque, para o navegador não bloquear) e esta aba fica conferindo a confirmação
+      const inFrame = (() => {
+        try {
+          return window.top !== window.self;
+        } catch {
+          return true;
+        }
+      })();
+      const pop = inFrame ? window.open('', '_blank') : null;
       try {
         const r = await this.account.checkout(it.id);
+        if (inFrame) {
+          if (pop) pop.location.href = r.url;
+          else window.open(r.url, '_blank');
+          this.sheet.classList.add('hidden');
+          this.setStatus('Pagamento aberto em outra aba. Assim que pagar, o item aparece aqui.');
+          void this.watchOrder(r.orderId, true, undefined, 10 * 60_000);
+          return;
+        }
         location.href = r.url;
       } catch (e) {
+        pop?.close();
         go.disabled = false;
         go.textContent = 'Ir para o pagamento';
         this.sheet.classList.add('hidden');
@@ -274,7 +293,7 @@ export class Shop {
    * Volta do Mercado Pago (?pedido=…&pagamento=…) ou pedido pendente salvo:
    * consulta o servidor até o pagamento ser confirmado (Pix e cartão costumam levar segundos).
    */
-  async watchOrder(orderId: string, fromReturn: boolean, hint?: string) {
+  async watchOrder(orderId: string, fromReturn: boolean, hint?: string, maxMs?: number) {
     if (this.polling) return;
     this.polling = true;
     const item = COSMETICS.find((c) => c.id === this.account.pendingOrder()?.itemId);
@@ -282,7 +301,7 @@ export class Shop {
     else this.setStatus(`Confirmando pagamento${item ? ` de ${item.name}` : ''}…`);
     const started = Date.now();
     try {
-      while (Date.now() - started < (fromReturn ? 90_000 : 20_000)) {
+      while (Date.now() - started < (maxMs ?? (fromReturn ? 90_000 : 20_000))) {
         let st: { status: string; itemId: string };
         try {
           st = await this.account.orderStatus(orderId);

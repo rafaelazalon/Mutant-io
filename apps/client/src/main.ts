@@ -67,7 +67,10 @@ class App {
     if (pedido && /^ord_[a-f0-9]{24}$/.test(pedido)) {
       const hint = qs.get('pagamento') ?? undefined;
       history.replaceState(null, '', location.pathname);
-      void this.openShop().then(() => this.shop.watchOrder(pedido, true, hint));
+      if (!this.account.secret && this.account.pendingOrder()?.orderId !== pedido) {
+        // pagamento aberto a partir de um portal (outra aba): a confirmação aparece na aba do jogo
+        this.flashStatus(hint === 'recusado' ? 'Pagamento não concluído.' : 'Pagamento enviado! Volte para a aba do jogo: o item aparece lá.', hint !== 'recusado');
+      } else void this.openShop().then(() => this.shop.watchOrder(pedido, true, hint));
     }
     $('cancel-match').onclick = () => this.toMenu();
     $('open-help').onclick = () => this.openHelp();
